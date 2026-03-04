@@ -1,5 +1,16 @@
 export type SourcePosition = [number, number, number]
 
+export interface CameraPreset {
+  position: [number, number, number]
+  target: [number, number, number]
+}
+
+export type CameraCommand =
+  | { type: 'home' }
+  | { type: 'recall'; index: number }
+  | { type: 'save'; index: number }
+  | null
+
 export interface AppState {
   sourcePosition: SourcePosition
   isPlaying: boolean
@@ -13,6 +24,12 @@ export interface AppState {
   setAudioFileName: (name: string | null) => void
   setVolume: (volume: number) => void
   setListenerY: (y: number) => void
+  cameraPresets: (CameraPreset | null)[]
+  setCameraPreset: (index: number, preset: CameraPreset | null) => void
+  cameraCommand: CameraCommand
+  setCameraCommand: (cmd: CameraCommand) => void
+  sineFrequency: number
+  setSineFrequency: (freq: number) => void
 }
 
 export interface AudioFileResult {

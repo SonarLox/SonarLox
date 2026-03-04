@@ -6,6 +6,7 @@ import { SoundSource } from './SoundSource'
 import { AudioBridge } from './AudioBridge'
 import { DistanceRings } from './DistanceRings'
 import { AudioVisualizer } from './AudioVisualizer'
+import { CameraManager } from './CameraManager'
 
 export function Viewport() {
   return (
@@ -16,6 +17,7 @@ export function Viewport() {
       <ambientLight intensity={0.4} />
       <directionalLight position={[5, 8, 5]} intensity={0.8} />
       <OrbitControls makeDefault />
+      <CameraManager />
       <gridHelper args={[20, 20, '#444466', '#333355']} />
       <Room />
       <Listener />

@@ -15,6 +15,10 @@ export function ControlPanel() {
   const listenerY = useAppStore((s) => s.listenerY)
   const setListenerY = useAppStore((s) => s.setListenerY)
   const setAudioFileName = useAppStore((s) => s.setAudioFileName)
+  const sineFrequency = useAppStore((s) => s.sineFrequency)
+  const setSineFrequency = useAppStore((s) => s.setSineFrequency)
+  const cameraPresets = useAppStore((s) => s.cameraPresets)
+  const setCameraCommand = useAppStore((s) => s.setCameraCommand)
   const [isExporting, setIsExporting] = useState(false)
 
   const handleExport = async () => {
@@ -68,7 +72,19 @@ export function ControlPanel() {
   const handleTestTone = async (type: 'sine' | 'pink-noise') => {
     await audioEngine.playTestTone(type)
     setIsPlaying(true)
-    setAudioFileName(type === 'sine' ? 'Sine 440 Hz' : 'Pink Noise')
+    setAudioFileName(type === 'sine' ? `Sine ${Math.round(sineFrequency)} Hz` : 'Pink Noise')
+  }
+
+  const freqFromSlider = (v: number) => 20 * Math.pow(200, v)
+  const sliderFromFreq = (f: number) => Math.log(f / 20) / Math.log(200)
+
+  const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const freq = Math.round(freqFromSlider(parseFloat(e.target.value)))
+    setSineFrequency(freq)
+    audioEngine.setSineFrequency(freq)
+    if (isPlaying && audioFileName?.startsWith('Sine')) {
+      setAudioFileName(`Sine ${freq} Hz`)
+    }
   }
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,6 +123,18 @@ export function ControlPanel() {
             Pink Noise
           </button>
         </div>
+        <label style={{ fontSize: 11, opacity: 0.5 }}>
+          Sine — {Math.round(sineFrequency)} Hz
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.001}
+          value={sliderFromFreq(sineFrequency)}
+          onChange={handleFrequencyChange}
+          style={{ width: '100%', cursor: 'pointer' }}
+        />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -174,6 +202,36 @@ export function ControlPanel() {
         >
           {isExporting ? 'Exporting...' : 'Export WAV'}
         </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase' }}>Camera</label>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => setCameraCommand({ type: 'home' })} style={btnStyle}>
+            Home
+          </button>
+          {[0, 1, 2, 3].map((i) => (
+            <button
+              key={i}
+              onClick={(e) => {
+                if (e.shiftKey) {
+                  setCameraCommand({ type: 'save', index: i })
+                } else if (cameraPresets[i]) {
+                  setCameraCommand({ type: 'recall', index: i })
+                }
+              }}
+              style={{
+                ...btnStyle,
+                minWidth: 36,
+                background: cameraPresets[i] ? '#2a2a4e' : '#1a1a2e',
+                borderColor: cameraPresets[i] ? '#6a6aff' : '#444'
+              }}
+            >
+              {i + 1}
+            </button>
+          ))}
+        </div>
+        <span style={{ fontSize: 10, opacity: 0.35 }}>Shift+click to save</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

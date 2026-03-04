@@ -13,5 +13,16 @@ export const useAppStore = create<AppState>((set) => ({
   setIsLooping: (isLooping) => set({ isLooping }),
   setAudioFileName: (audioFileName) => set({ audioFileName }),
   setVolume: (volume) => set({ volume }),
-  setListenerY: (listenerY) => set({ listenerY })
+  setListenerY: (listenerY) => set({ listenerY }),
+  cameraPresets: [null, null, null, null],
+  setCameraPreset: (index, preset) =>
+    set((state) => {
+      const next = [...state.cameraPresets]
+      next[index] = preset
+      return { cameraPresets: next }
+    }),
+  cameraCommand: null,
+  setCameraCommand: (cameraCommand) => set({ cameraCommand }),
+  sineFrequency: 440,
+  setSineFrequency: (sineFrequency) => set({ sineFrequency })
 }))

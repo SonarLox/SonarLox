@@ -11,6 +11,7 @@ class AudioEngine {
   private pauseOffset: number = 0
   private isLooping: boolean = true
   private isOscillator: boolean = false
+  private sineFrequency: number = 440
 
   async init(): Promise<void> {
     if (!this.ctx) {
@@ -74,19 +75,20 @@ class AudioEngine {
     this.stop()
 
     if (type === 'sine') {
+      const freq = this.sineFrequency
       const duration = 4
       const sampleRate = this.ctx!.sampleRate
       const length = sampleRate * duration
       const sineBuffer = this.ctx!.createBuffer(1, length, sampleRate)
       const data = sineBuffer.getChannelData(0)
       for (let i = 0; i < length; i++) {
-        data[i] = Math.sin(2 * Math.PI * 440 * i / sampleRate)
+        data[i] = Math.sin(2 * Math.PI * freq * i / sampleRate)
       }
       this.audioBuffer = sineBuffer
 
       const osc = this.ctx!.createOscillator()
       osc.type = 'sine'
-      osc.frequency.value = 440
+      osc.frequency.value = freq
       osc.connect(this.gainNode!)
       osc.start()
       this.currentSource = osc
@@ -141,6 +143,25 @@ class AudioEngine {
     this.isLooping = loop
     if (this.currentSource && !this.isOscillator && this.currentSource instanceof AudioBufferSourceNode) {
       this.currentSource.loop = loop
+    }
+  }
+
+  setSineFrequency(freq: number): void {
+    this.sineFrequency = freq
+    if (this.isOscillator && this.currentSource instanceof OscillatorNode) {
+      this.currentSource.frequency.value = freq
+    }
+    // Regenerate export buffer at new frequency
+    if (this.ctx) {
+      const duration = 4
+      const sampleRate = this.ctx.sampleRate
+      const length = sampleRate * duration
+      const sineBuffer = this.ctx.createBuffer(1, length, sampleRate)
+      const data = sineBuffer.getChannelData(0)
+      for (let i = 0; i < length; i++) {
+        data[i] = Math.sin(2 * Math.PI * freq * i / sampleRate)
+      }
+      this.audioBuffer = sineBuffer
     }
   }
 

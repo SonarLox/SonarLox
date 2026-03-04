@@ -38,7 +38,8 @@ A desktop application that lets you visually place audio sources in a 3D room an
 5. Visual rings around the source show distance from listener and relative volume
 6. Waveform or level meter rendered on/near the source for visual audio feedback
 7. Click "Export" → renders the current source position as a binaural stereo WAV to disk
-8. Transport controls: play, pause, stop, loop toggle
+8. Transport controls: play, pause (resume from offset), stop, loop toggle
+9. Listener height adjustable via slider
 
 ---
 
@@ -106,14 +107,15 @@ A desktop application that lets you visually place audio sources in a 3D room an
 
 ### Spatial Audio
 - Use `PannerNode` with `panningModel: 'HRTF'` and `distanceModel: 'inverse'`
-- Listener at origin (0, 0, 0), facing -Z (default Web Audio orientation)
-- Source position updated on every drag frame via `panner.positionX/Y/Z.setValueAtTime()`
+- Listener at origin (0, 0, 0) with adjustable Y height, facing -Z (default Web Audio orientation)
+- Source position updated on every drag frame via `panner.positionX/Y/Z.value`
+- Listener Y synced to `ctx.listener.positionY.value` via AudioBridge
 - Distance attenuation: `refDistance: 1`, `maxDistance: 50`, `rolloffFactor: 1`
 
 ### 3D Scene
 - Room: wireframe box geometry, 20x10x20 units (W x H x D)
 - Source: sphere mesh with emissive glow, uses @react-three/drei pointer events or drag controls
-- Listener: static head icon or crosshair at origin
+- Listener: head model (sphere + nose cone + ear cones) with adjustable Y height
 - Camera: orbital controls, default isometric-ish angle
 - Grid helper on floor plane for spatial reference
 - Distance rings: torus geometries or shader rings emanating from source
@@ -205,13 +207,17 @@ sonarlox/
 - LOCAL: Implement Exporter.ts — render buffer, convert to WAV
 - LOCAL: Electron save dialog → write to disk
 
-### Phase 6: Polish (Est. 1 session) — LOCAL: qwen3-coder or glm-4.7-flash
-- Transport controls (play/pause/stop/loop)
-- Volume slider
+### Phase 6: Polish (Est. 1 session) — COMPLETE
+- Transport controls: play, pause (with resume from offset), stop, loop toggle
+- Volume slider with percentage readout
 - Position readout (X, Y, Z coordinates)
-- Source position clamped to room bounds
+- Source position clamped to room bounds via DragControls dragLimits
+- Listener height slider (Y axis, 0-10) synced to Web Audio listener
+- Listener 3D model: head sphere + nose cone (forward -Z) + ear cones
 - Error handling (invalid files, audio context resume)
-- App icon and window title
+- App icon (256x256 speaker+waves PNG) and window title
+- Performance: Zustand transient update pattern eliminates React re-renders during drag
+- Drag fluidity: imperative mesh/material updates via refs + throttled store commits at ~15hz
 
 ---
 

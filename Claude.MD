@@ -20,9 +20,17 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app — load
 ## Key Architecture
 - Main process (src/main/) handles file dialogs and IPC only
 - Renderer process (src/renderer/) has all UI and audio logic
-- Zustand store (src/renderer/stores/useAppStore.ts) is source of truth for source position, playback state
-- 3D source position syncs to Web Audio PannerNode on every frame
+- Zustand store (src/renderer/stores/useAppStore.ts) is source of truth for source position, playback state, listener height
+- 3D source position syncs to Web Audio PannerNode on every frame via AudioBridge
+- Listener Y position syncs to Web Audio AudioListener via AudioBridge
 - AnalyserNode provides waveform data for visual feedback
+
+## Performance Pattern: Zustand Transient Updates
+- Components that read position in useFrame use `useAppStore.getState()` (no subscription, no re-render)
+- SoundSource updates mesh position directly via ref during drag, throttles store commits at ~15hz
+- AudioBridge, AudioVisualizer, DistanceRings all use getState() in useFrame
+- DistanceRings uses raw BufferGeometry for dynamic ground projection line, drei Line refs for static ring materials
+- Never subscribe to high-frequency state (sourcePosition) in components that only need it per-frame
 
 ## Commands
 - `npm run dev` — start dev server with hot reload
@@ -34,6 +42,9 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app — load
 - After changes, always run typecheck and confirm the app renders
 - Test audio: load any MP3, drag source, confirm spatial panning through headphones
 - Test export: export WAV, play in external player, confirm stereo spatialization
+- Test pause/resume: pause mid-track, resume from same position
+- Test loop toggle: turn off loop, confirm audio stops at end
+- Test listener height: slide listener Y, confirm spatial audio changes
 
 ## Model Routing
 
