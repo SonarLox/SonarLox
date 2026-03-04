@@ -1,6 +1,7 @@
 import { useAppStore } from '../stores/useAppStore'
 import { audioEngine } from '../audio/AudioEngine'
 import { MAX_SOURCES } from '../types'
+import type { SourceType } from '../types'
 
 export function SourceList() {
   const sources = useAppStore((s) => s.sources)
@@ -10,9 +11,9 @@ export function SourceList() {
   const removeSource = useAppStore((s) => s.removeSource)
   const setSourceMuted = useAppStore((s) => s.setSourceMuted)
 
-  const handleAdd = async () => {
+  const handleAdd = async (type: SourceType) => {
     await audioEngine.init()
-    addSource()
+    addSource(type)
     const newSources = useAppStore.getState().sources
     const newest = newSources[newSources.length - 1]
     audioEngine.createChannel(newest.id)
@@ -26,6 +27,8 @@ export function SourceList() {
   const handleMuteToggle = (id: string, currentMuted: boolean) => {
     setSourceMuted(id, !currentMuted)
   }
+
+  const atMax = sources.length >= MAX_SOURCES
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
@@ -79,6 +82,17 @@ export function SourceList() {
                 </span>
               )}
             </span>
+            <span style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: 9,
+              color: 'var(--text-muted)',
+              padding: '1px 4px',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: 2,
+              lineHeight: 1.2,
+            }}>
+              {source.sourceType === 'file' ? 'FILE' : 'TONE'}
+            </span>
             <button
               className={`btn-icon ${source.isMuted ? 'btn-icon--muted' : ''}`}
               onClick={(e) => {
@@ -105,22 +119,38 @@ export function SourceList() {
         )
       })}
 
-      <button
-        className="btn"
-        onClick={handleAdd}
-        disabled={sources.length >= MAX_SOURCES}
-        style={{
-          fontSize: 11,
-          padding: '5px 12px',
-          textAlign: 'center',
-          borderStyle: 'dashed',
-          color: sources.length >= MAX_SOURCES
-            ? 'var(--text-muted)'
-            : 'var(--text-secondary)',
-        }}
-      >
-        + Add Source
-      </button>
+      <div style={{ display: 'flex', gap: 5 }}>
+        <button
+          className="btn"
+          onClick={() => handleAdd('file')}
+          disabled={atMax}
+          style={{
+            flex: 1,
+            fontSize: 11,
+            padding: '5px 10px',
+            textAlign: 'center',
+            borderStyle: 'dashed',
+            color: atMax ? 'var(--text-muted)' : 'var(--text-secondary)',
+          }}
+        >
+          + File
+        </button>
+        <button
+          className="btn"
+          onClick={() => handleAdd('tone')}
+          disabled={atMax}
+          style={{
+            flex: 1,
+            fontSize: 11,
+            padding: '5px 10px',
+            textAlign: 'center',
+            borderStyle: 'dashed',
+            color: atMax ? 'var(--text-muted)' : 'var(--text-secondary)',
+          }}
+        >
+          + Tone
+        </button>
+      </div>
     </div>
   )
 }

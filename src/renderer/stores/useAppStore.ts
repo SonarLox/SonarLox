@@ -1,13 +1,14 @@
 import { create } from 'zustand'
-import type { AppState, AudioSource, SourceId } from '../types'
+import type { AppState, AudioSource, SourceId, SourceType } from '../types'
 import { SOURCE_COLORS, MAX_SOURCES } from '../types'
 
 let nextSourceIndex = 1
 
-function createDefaultSource(index: number): AudioSource {
+function createDefaultSource(index: number, type: SourceType): AudioSource {
   return {
     id: crypto.randomUUID(),
     label: `Source ${index}`,
+    sourceType: type,
     position: [2 + (index - 1) * 1.5, 1, (index - 1) * 1.5],
     volume: 1.0,
     color: SOURCE_COLORS[(index - 1) % SOURCE_COLORS.length],
@@ -17,17 +18,17 @@ function createDefaultSource(index: number): AudioSource {
   }
 }
 
-const initialSource = createDefaultSource(1)
+const initialSource = createDefaultSource(1, 'file')
 
 export const useAppStore = create<AppState>((set, get) => ({
   sources: [initialSource],
   selectedSourceId: initialSource.id,
 
-  addSource: () => {
+  addSource: (type: SourceType) => {
     const { sources } = get()
     if (sources.length >= MAX_SOURCES) return
     nextSourceIndex++
-    const newSource = createDefaultSource(nextSourceIndex)
+    const newSource = createDefaultSource(nextSourceIndex, type)
     set({ sources: [...sources, newSource], selectedSourceId: newSource.id })
   },
 

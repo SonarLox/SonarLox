@@ -133,7 +133,9 @@ export function ControlPanel() {
   }
 
   const sineFrequency = selectedSource?.sineFrequency ?? 440
-  const isSineSource = selectedSource?.audioFileName?.startsWith('Sine') ?? false
+  const isFileSource = selectedSource?.sourceType === 'file'
+  const isToneSource = selectedSource?.sourceType === 'tone'
+  const isSineActive = isToneSource && (selectedSource?.audioFileName?.startsWith('Sine') ?? false)
   const volume = selectedSource?.volume ?? 1
   const sourcePosition = selectedSource?.position ?? [0, 0, 0]
   const hasAnyAudio = audioEngine.hasAnyBuffer()
@@ -180,51 +182,73 @@ export function ControlPanel() {
               <span className="section-label" style={{ paddingBottom: 0 }}>
                 {selectedSource.label}
               </span>
-            </div>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn" onClick={handleLoadAudio} style={{ flex: 1 }}>
-                Load Audio
-              </button>
-            </div>
-            {selectedSource.audioFileName && (
               <span style={{
                 fontFamily: 'var(--font-mono)',
-                fontSize: 11,
-                color: 'var(--text-secondary)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
+                fontSize: 9,
+                color: 'var(--text-muted)',
+                marginLeft: 'auto',
               }}>
-                {selectedSource.audioFileName}
+                {isFileSource ? 'FILE' : 'TONE'}
               </span>
-            )}
-          </div>
-
-          {/* Test Tones */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="section-label">Test Tones</span>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button className="btn" onClick={() => handleTestTone('sine')} style={{ flex: 1 }}>
-                Sine
-              </button>
-              <button className="btn" onClick={() => handleTestTone('pink-noise')} style={{ flex: 1 }}>
-                Pink Noise
-              </button>
             </div>
-            {isSineSource && (
+
+            {/* File source: Load Audio */}
+            {isFileSource && (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Frequency</span>
-                  <span className="slider-value">{Math.round(sineFrequency)} Hz</span>
+                <button className="btn" onClick={handleLoadAudio} style={{ flex: 1 }}>
+                  Load Audio
+                </button>
+                {selectedSource.audioFileName && (
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--text-secondary)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    {selectedSource.audioFileName}
+                  </span>
+                )}
+              </>
+            )}
+
+            {/* Tone source: Sine / Pink Noise */}
+            {isToneSource && (
+              <>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn" onClick={() => handleTestTone('sine')} style={{ flex: 1 }}>
+                    Sine
+                  </button>
+                  <button className="btn" onClick={() => handleTestTone('pink-noise')} style={{ flex: 1 }}>
+                    Pink Noise
+                  </button>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.001}
-                  value={sliderFromFreq(sineFrequency)}
-                  onChange={handleFrequencyChange}
-                />
+                {selectedSource.audioFileName && (
+                  <span style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    color: 'var(--text-secondary)',
+                  }}>
+                    {selectedSource.audioFileName}
+                  </span>
+                )}
+                {isSineActive && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Frequency</span>
+                      <span className="slider-value">{Math.round(sineFrequency)} Hz</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.001}
+                      value={sliderFromFreq(sineFrequency)}
+                      onChange={handleFrequencyChange}
+                    />
+                  </>
+                )}
               </>
             )}
           </div>

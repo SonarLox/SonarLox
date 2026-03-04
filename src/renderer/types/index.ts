@@ -9,9 +9,12 @@ export const SOURCE_COLORS = [
 
 export const MAX_SOURCES = 8
 
+export type SourceType = 'file' | 'tone'
+
 export interface AudioSource {
   id: SourceId
   label: string
+  sourceType: SourceType
   position: SourcePosition
   volume: number
   color: string
@@ -35,7 +38,7 @@ export interface AppState {
   // Multi-source
   sources: AudioSource[]
   selectedSourceId: SourceId | null
-  addSource: () => void
+  addSource: (type: SourceType) => void
   removeSource: (id: SourceId) => void
   selectSource: (id: SourceId | null) => void
   setSourcePosition: (id: SourceId, position: SourcePosition) => void
