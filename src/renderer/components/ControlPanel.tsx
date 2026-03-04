@@ -133,6 +133,7 @@ export function ControlPanel() {
   }
 
   const sineFrequency = selectedSource?.sineFrequency ?? 440
+  const isSineSource = selectedSource?.audioFileName?.startsWith('Sine') ?? false
   const volume = selectedSource?.volume ?? 1
   const sourcePosition = selectedSource?.position ?? [0, 0, 0]
   const hasAnyAudio = audioEngine.hasAnyBuffer()
@@ -210,18 +211,22 @@ export function ControlPanel() {
                 Pink Noise
               </button>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Frequency</span>
-              <span className="slider-value">{Math.round(sineFrequency)} Hz</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.001}
-              value={sliderFromFreq(sineFrequency)}
-              onChange={handleFrequencyChange}
-            />
+            {isSineSource && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Frequency</span>
+                  <span className="slider-value">{Math.round(sineFrequency)} Hz</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.001}
+                  value={sliderFromFreq(sineFrequency)}
+                  onChange={handleFrequencyChange}
+                />
+              </>
+            )}
           </div>
 
           {/* Volume */}

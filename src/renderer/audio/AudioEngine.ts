@@ -136,16 +136,18 @@ class SourceChannel {
     if (this.isOscillator && this.currentSource instanceof OscillatorNode) {
       this.currentSource.frequency.value = freq
     }
-    // Regenerate export buffer at new frequency
-    const duration = 4
-    const sampleRate = this.ctx.sampleRate
-    const length = sampleRate * duration
-    const sineBuffer = this.ctx.createBuffer(1, length, sampleRate)
-    const data = sineBuffer.getChannelData(0)
-    for (let i = 0; i < length; i++) {
-      data[i] = Math.sin((2 * Math.PI * freq * i) / sampleRate)
+    // Only regenerate buffer if this channel is actually playing a sine
+    if (this.isOscillator) {
+      const duration = 4
+      const sampleRate = this.ctx.sampleRate
+      const length = sampleRate * duration
+      const sineBuffer = this.ctx.createBuffer(1, length, sampleRate)
+      const data = sineBuffer.getChannelData(0)
+      for (let i = 0; i < length; i++) {
+        data[i] = Math.sin((2 * Math.PI * freq * i) / sampleRate)
+      }
+      this.audioBuffer = sineBuffer
     }
-    this.audioBuffer = sineBuffer
   }
 
   isPaused(): boolean {
