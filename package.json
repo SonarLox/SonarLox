@@ -1,0 +1,33 @@
+{
+  "name": "sonarlox",
+  "version": "1.0.0",
+  "description": "3D spatial audio editor with HRTF binaural spatialization",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "three": "^0.183.2",
+    "zustand": "^5.0.11"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.183.1",
+    "@vitejs/plugin-react": "^5.1.4",
+    "electron": "^40.7.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.9.3"
+  }
+}
