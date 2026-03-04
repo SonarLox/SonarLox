@@ -15,7 +15,7 @@ const lowColor = new Color('#22cc44')
 const highColor = new Color('#ff8800')
 
 export function AudioVisualizer() {
-  const sourcePosition = useAppStore((s) => s.sourcePosition)
+  const groupRef = useRef<import('three').Group>(null)
   const barRefs = useRef<(Mesh | null)[]>([])
   const dataRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
@@ -32,6 +32,12 @@ export function AudioVisualizer() {
   })
 
   useFrame(() => {
+    // Read position from store without subscribing (no re-render)
+    const [sx, sy, sz] = useAppStore.getState().sourcePosition
+    if (groupRef.current) {
+      groupRef.current.position.set(sx, sy + Y_OFFSET, sz)
+    }
+
     const analyser = analyserRef.current ?? audioEngine.getAnalyser()
     if (!analyser) return
 
@@ -67,7 +73,7 @@ export function AudioVisualizer() {
   const startX = -totalWidth / 2 + BAR_WIDTH / 2
 
   return (
-    <group position={[sourcePosition[0], sourcePosition[1] + Y_OFFSET, sourcePosition[2]]}>
+    <group ref={groupRef}>
       <Billboard follow lockX={false} lockY={false} lockZ={false}>
         {Array.from({ length: BAR_COUNT }, (_, i) => (
           <mesh

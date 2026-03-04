@@ -9,6 +9,11 @@ export function ControlPanel() {
   const audioFileName = useAppStore((s) => s.audioFileName)
   const setIsPlaying = useAppStore((s) => s.setIsPlaying)
   const volume = useAppStore((s) => s.volume)
+  const setVolume = useAppStore((s) => s.setVolume)
+  const isLooping = useAppStore((s) => s.isLooping)
+  const setIsLooping = useAppStore((s) => s.setIsLooping)
+  const listenerY = useAppStore((s) => s.listenerY)
+  const setListenerY = useAppStore((s) => s.setListenerY)
   const setAudioFileName = useAppStore((s) => s.setAudioFileName)
   const [isExporting, setIsExporting] = useState(false)
 
@@ -42,8 +47,17 @@ export function ControlPanel() {
   }
 
   const handlePlay = () => {
-    audioEngine.play()
+    if (audioEngine.isPaused()) {
+      audioEngine.resume()
+    } else {
+      audioEngine.play()
+    }
     setIsPlaying(true)
+  }
+
+  const handlePause = () => {
+    audioEngine.pause()
+    setIsPlaying(false)
   }
 
   const handleStop = () => {
@@ -55,6 +69,18 @@ export function ControlPanel() {
     await audioEngine.playTestTone(type)
     setIsPlaying(true)
     setAudioFileName(type === 'sine' ? 'Sine 440 Hz' : 'Pink Noise')
+  }
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseFloat(e.target.value)
+    setVolume(v)
+    audioEngine.setVolume(v)
+  }
+
+  const handleLoopToggle = () => {
+    const next = !isLooping
+    setIsLooping(next)
+    audioEngine.setLooping(next)
   }
 
   return (
@@ -89,10 +115,54 @@ export function ControlPanel() {
           <button onClick={handlePlay} disabled={!audioFileName || isPlaying} style={btnStyle}>
             Play
           </button>
-          <button onClick={handleStop} disabled={!isPlaying} style={btnStyle}>
+          <button onClick={handlePause} disabled={!isPlaying} style={btnStyle}>
+            Pause
+          </button>
+          <button onClick={handleStop} disabled={!isPlaying && !audioEngine.isPaused()} style={btnStyle}>
             Stop
           </button>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase' }}>
+          Volume — {Math.round(volume * 100)}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={volume}
+          onChange={handleVolumeChange}
+          style={{ width: '100%', cursor: 'pointer' }}
+        />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase' }}>Loop</label>
+        <button onClick={handleLoopToggle} style={{
+          ...btnStyle,
+          background: isLooping ? '#2a2a4e' : '#1a1a2e',
+          borderColor: isLooping ? '#6a6aff' : '#444'
+        }}>
+          {isLooping ? 'Loop: On' : 'Loop: Off'}
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <label style={{ fontSize: 11, opacity: 0.5, textTransform: 'uppercase' }}>
+          Listener Height — {listenerY.toFixed(1)}
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={10}
+          step={0.1}
+          value={listenerY}
+          onChange={(e) => setListenerY(parseFloat(e.target.value))}
+          style={{ width: '100%', cursor: 'pointer' }}
+        />
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

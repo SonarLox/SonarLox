@@ -7,6 +7,10 @@ class AudioEngine {
   private analyserNode: AnalyserNode | null = null
   private currentSource: AudioBufferSourceNode | OscillatorNode | null = null
   private audioBuffer: AudioBuffer | null = null
+  private playbackStartTime: number = 0
+  private pauseOffset: number = 0
+  private isLooping: boolean = true
+  private isOscillator: boolean = false
 
   async init(): Promise<void> {
     if (!this.ctx) {
@@ -44,14 +48,25 @@ class AudioEngine {
 
   play(): void {
     if (!this.ctx || !this.gainNode || !this.audioBuffer) return
-    this.stop()
+    this.stopSource()
 
     const source = this.ctx.createBufferSource()
     source.buffer = this.audioBuffer
-    source.loop = true
+    source.loop = this.isLooping
     source.connect(this.gainNode)
-    source.start()
+
+    const offset = this.pauseOffset % this.audioBuffer.duration
+    source.start(0, offset)
+    this.playbackStartTime = this.ctx.currentTime - offset
     this.currentSource = source
+    this.isOscillator = false
+
+    if (!this.isLooping) {
+      source.onended = () => {
+        this.currentSource = null
+        this.pauseOffset = 0
+      }
+    }
   }
 
   async playTestTone(type: 'sine' | 'pink-noise'): Promise<void> {
@@ -59,7 +74,6 @@ class AudioEngine {
     this.stop()
 
     if (type === 'sine') {
-      // Generate a 4-second sine buffer for export support
       const duration = 4
       const sampleRate = this.ctx!.sampleRate
       const length = sampleRate * duration
@@ -76,19 +90,42 @@ class AudioEngine {
       osc.connect(this.gainNode!)
       osc.start()
       this.currentSource = osc
+      this.isOscillator = true
     } else {
       const buffer = createPinkNoiseBuffer(this.ctx!)
       this.audioBuffer = buffer
       const source = this.ctx!.createBufferSource()
       source.buffer = buffer
-      source.loop = true
+      source.loop = this.isLooping
       source.connect(this.gainNode!)
       source.start()
+      this.playbackStartTime = this.ctx!.currentTime
       this.currentSource = source
+      this.isOscillator = false
     }
   }
 
+  pause(): void {
+    if (!this.currentSource || !this.ctx) return
+
+    if (!this.isOscillator && this.audioBuffer) {
+      const elapsed = this.ctx.currentTime - this.playbackStartTime
+      this.pauseOffset = elapsed % this.audioBuffer.duration
+    }
+
+    this.stopSource()
+  }
+
+  resume(): void {
+    this.play()
+  }
+
   stop(): void {
+    this.stopSource()
+    this.pauseOffset = 0
+  }
+
+  private stopSource(): void {
     if (this.currentSource) {
       try {
         this.currentSource.stop()
@@ -100,11 +137,31 @@ class AudioEngine {
     }
   }
 
+  setLooping(loop: boolean): void {
+    this.isLooping = loop
+    if (this.currentSource && !this.isOscillator && this.currentSource instanceof AudioBufferSourceNode) {
+      this.currentSource.loop = loop
+    }
+  }
+
+  getIsLooping(): boolean {
+    return this.isLooping
+  }
+
+  isPaused(): boolean {
+    return this.pauseOffset > 0 && this.currentSource === null
+  }
+
   setPosition(x: number, y: number, z: number): void {
     if (!this.pannerNode) return
     this.pannerNode.positionX.value = x
     this.pannerNode.positionY.value = y
     this.pannerNode.positionZ.value = z
+  }
+
+  setListenerY(y: number): void {
+    if (!this.ctx) return
+    this.ctx.listener.positionY.value = y
   }
 
   setVolume(volume: number): void {

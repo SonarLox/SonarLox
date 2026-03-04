@@ -8,6 +8,7 @@ function createWindow(): void {
     width: 1200,
     height: 800,
     title: 'SonarLox',
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false

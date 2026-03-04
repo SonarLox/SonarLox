@@ -1,13 +1,14 @@
-import { useMemo } from 'react'
+import { useRef, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
-import { Vector3 } from 'three'
+import { Vector3, BufferGeometry, Float32BufferAttribute, LineBasicMaterial, Color, Line as ThreeLine } from 'three'
 import { useAppStore } from '../stores/useAppStore'
+import type { Line2 } from 'three-stdlib'
 
 const RING_RADII = [2, 4, 6, 8]
 const RING_SEGMENTS = 64
-const INACTIVE_COLOR = '#556677'
-const ACTIVE_COLOR = '#00ccff'
-const LINE_COLOR = '#00ccff'
+const INACTIVE_COLOR = new Color('#556677')
+const ACTIVE_COLOR = new Color('#00ccff')
 
 function makeCirclePoints(radius: number): Vector3[] {
   const points: Vector3[] = []
@@ -19,53 +20,79 @@ function makeCirclePoints(radius: number): Vector3[] {
 }
 
 export function DistanceRings() {
-  const sourcePosition = useAppStore((s) => s.sourcePosition)
-  const [x, y, z] = sourcePosition
+  const ringRefs = useRef<(Line2 | null)[]>([])
 
-  const distance = Math.sqrt(x * x + y * y + z * z)
+  // Ground projection line: raw BufferGeometry updated imperatively
+  const projPositions = useMemo(() => new Float32Array(6), []) // 2 points x 3 coords
+  const projGeometry = useMemo(() => {
+    const geo = new BufferGeometry()
+    geo.setAttribute('position', new Float32BufferAttribute(projPositions, 3))
+    return geo
+  }, [projPositions])
+  const projMaterial = useMemo(
+    () => new LineBasicMaterial({ color: '#00ccff', opacity: 0.5, transparent: true }),
+    []
+  )
+  const projLine = useMemo(
+    () => new ThreeLine(projGeometry, projMaterial),
+    [projGeometry, projMaterial]
+  )
 
-  const closestIndex = useMemo(() => {
-    let best = 0
-    let bestDiff = Math.abs(RING_RADII[0] - distance)
-    for (let i = 1; i < RING_RADII.length; i++) {
-      const diff = Math.abs(RING_RADII[i] - distance)
-      if (diff < bestDiff) {
-        bestDiff = diff
-        best = i
-      }
-    }
-    return best
-  }, [distance])
-
+  // Static ring points -- never change
   const circles = useMemo(
     () => RING_RADII.map((r) => makeCirclePoints(r)),
     []
   )
 
-  const groundTarget = useMemo(() => [new Vector3(0, 0, 0), new Vector3(x, 0, z)], [x, z])
+  useFrame(() => {
+    const [x, y, z] = useAppStore.getState().sourcePosition
+    const distance = Math.sqrt(x * x + y * y + z * z)
+
+    // Find closest ring
+    let closestIndex = 0
+    let bestDiff = Math.abs(RING_RADII[0] - distance)
+    for (let i = 1; i < RING_RADII.length; i++) {
+      const diff = Math.abs(RING_RADII[i] - distance)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        closestIndex = i
+      }
+    }
+
+    // Update ring materials imperatively
+    for (let i = 0; i < ringRefs.current.length; i++) {
+      const line = ringRefs.current[i]
+      if (!line) continue
+      const mat = line.material
+      const isActive = i === closestIndex
+      mat.color.copy(isActive ? ACTIVE_COLOR : INACTIVE_COLOR)
+      mat.opacity = isActive ? 0.8 : 0.3
+      mat.linewidth = isActive ? 1.5 : 0.8
+    }
+
+    // Update ground projection line endpoints
+    // Point 0: origin (0, 0, 0) -- already zeros in the array
+    // Point 1: ground projection of source
+    projPositions[3] = x
+    projPositions[4] = 0
+    projPositions[5] = z
+    projGeometry.attributes.position.needsUpdate = true
+  })
 
   return (
     <group>
       {circles.map((points, i) => (
         <Line
           key={i}
+          ref={(el: Line2 | null) => { ringRefs.current[i] = el }}
           points={points}
-          color={i === closestIndex ? ACTIVE_COLOR : INACTIVE_COLOR}
-          lineWidth={i === closestIndex ? 1.5 : 0.8}
-          opacity={i === closestIndex ? 0.8 : 0.3}
+          color={INACTIVE_COLOR}
+          lineWidth={0.8}
+          opacity={0.3}
           transparent
         />
       ))}
-      <Line
-        points={groundTarget}
-        color={LINE_COLOR}
-        lineWidth={1}
-        opacity={0.5}
-        transparent
-        dashed
-        dashSize={0.3}
-        gapSize={0.15}
-      />
+      <primitive object={projLine} />
     </group>
   )
 }

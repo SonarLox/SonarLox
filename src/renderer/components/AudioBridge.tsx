@@ -1,12 +1,13 @@
 import { useFrame } from '@react-three/fiber'
-import { useAppStore } from '../stores/useAppStore'
 import { audioEngine } from '../audio/AudioEngine'
+import { useAppStore } from '../stores/useAppStore'
 
 export function AudioBridge() {
-  const sourcePosition = useAppStore((s) => s.sourcePosition)
-
   useFrame(() => {
-    audioEngine.setPosition(sourcePosition[0], sourcePosition[1], sourcePosition[2])
+    const state = useAppStore.getState()
+    const [x, y, z] = state.sourcePosition
+    audioEngine.setPosition(x, y, z)
+    audioEngine.setListenerY(state.listenerY)
   })
 
   return null
