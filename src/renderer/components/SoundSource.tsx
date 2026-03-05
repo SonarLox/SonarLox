@@ -2,27 +2,69 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { Vector3, Plane, Raycaster, Color, type Mesh, type MeshStandardMaterial } from 'three'
 import { useAppStore } from '../stores/useAppStore'
+import { useTransportStore } from '../stores/useTransportStore'
 import { audioEngine } from '../audio/WebAudioEngine'
+import { getAnimatedPosition } from '../audio/AnimationEngine'
 import type { SourceId } from '../types'
 
+/**
+ * Base scale factor for sound source spheres
+ */
 const BASE_SCALE = 0.3
+
+/**
+ * Maximum scale factor for sound source spheres during audio playback
+ */
 const MAX_SCALE = 0.45
+
+/**
+ * Base emissive intensity for sound source spheres
+ */
 const BASE_EMISSIVE = 0.3
+
+/**
+ * Maximum emissive intensity for sound source spheres during audio playback
+ */
 const MAX_EMISSIVE = 1.0
+
+/**
+ * Additional emissive boost when a sound source is selected
+ */
 const SELECTED_EMISSIVE_BOOST = 0.4
+
+/**
+ * Throttle interval for position updates to avoid excessive store writes
+ */
 const THROTTLE_MS = 64
 
+/**
+ * Minimum bounds for sound source positions in 3D space
+ */
 const MIN_BOUNDS: [number, number, number] = [-10, 0, -10]
+
+/**
+ * Maximum bounds for sound source positions in 3D space
+ */
 const MAX_BOUNDS: [number, number, number] = [10, 10, 10]
 
+/**
+ * Clamps a value between a minimum and maximum
+ */
 function clamp(v: number, min: number, max: number): number {
   return v < min ? min : v > max ? max : v
 }
 
+/**
+ * Props for the SoundSource component
+ */
 interface SoundSourceProps {
   sourceId: SourceId
 }
 
+/**
+ * A 3D visual representation of a sound source in the spatial audio editor
+ * Supports dragging, selection, and dynamic scaling/visual feedback based on audio amplitude
+ */
 export function SoundSource({ sourceId }: SoundSourceProps) {
   const meshRef = useRef<Mesh>(null)
   const selectSource = useAppStore((s) => s.selectSource)
@@ -52,21 +94,37 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     }
   })
 
+  /**
+   * Retrieves the current source data from the store
+   */
   const getSource = useCallback(() => {
     return useAppStore.getState().sources.find((s) => s.id === sourceId)
   }, [sourceId])
 
+  /**
+   * Commits a new position to the store with throttling
+   */
   const commitPosition = useCallback(
     (x: number, y: number, z: number, force: boolean) => {
       const now = performance.now()
       if (force || now - lastStoreUpdate.current > THROTTLE_MS) {
         lastStoreUpdate.current = now
         setSourcePosition(sourceId, [x, y, z])
+
+        // Record keyframe if recording during playback
+        const { isRecordingKeyframes, setKeyframe } = useAppStore.getState()
+        const transport = useTransportStore.getState()
+        if (isRecordingKeyframes && transport.isPlaying) {
+          setKeyframe(sourceId, transport.playheadPosition, [x, y, z])
+        }
       }
     },
     [sourceId, setSourcePosition]
   )
 
+  /**
+   * Handles pointer down event for dragging sound sources
+   */
   const onPointerDown = useCallback(
     (event: {
       stopPropagation: () => void
@@ -116,6 +174,9 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     [camera, controls, sourceId, selectSource, getSource]
   )
 
+  /**
+   * Handles pointer move event during dragging
+   */
   const onPointerMove = useCallback(
     (event: {
       stopPropagation: () => void
@@ -170,6 +231,9 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     [camera, commitPosition, getSource]
   )
 
+  /**
+   * Handles pointer up event to finish dragging
+   */
   const onPointerUp = useCallback(
     (event: {
       stopPropagation: () => void
@@ -203,9 +267,19 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     const mesh = meshRef.current
     if (!mesh) return
 
-    // Update position from store
+    // Update position from store (or animated position during playback)
     const source = getSource()
-    if (source) {
+    if (source && !isDragging.current) {
+      const transport = useTransportStore.getState()
+      const useAnimation = transport.isPlaying || transport.isPaused
+      const state = useAppStore.getState()
+      if (useAnimation && state.animations[sourceId]?.keyframes.length) {
+        const pos = getAnimatedPosition(sourceId, transport.playheadPosition, state.animations, source.position)
+        mesh.position.set(...pos)
+      } else {
+        mesh.position.set(...source.position)
+      }
+    } else if (source) {
       mesh.position.set(...source.position)
     }
 
