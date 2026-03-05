@@ -4,33 +4,21 @@ import type { SourceId, SourcePosition } from '../types'
 export type PluginType = 'audio-effect' | 'visualizer' | 'exporter' | 'source-generator'
 
 /** Parameter types for plugin configuration */
-export type PluginParameterType = 'float' | 'int' | 'boolean' | 'select'
-
-/** Defines a single configurable parameter exposed by a plugin */
 export interface PluginParameterDef {
   id: string
   label: string
-  type: PluginParameterType
-  defaultValue: number | boolean | string
+  type: 'float' | 'int' | 'boolean' | 'select' | 'file'
+  defaultValue: any
   min?: number
   max?: number
   step?: number
   options?: string[]
 }
 
-/** Plugin manifest loaded from plugin.json */
-export interface PluginManifest {
-  id: string
-  name: string
-  version: string
-  description: string
-  author: string
-  type: PluginType
-  main: string
-  parameters: PluginParameterDef[]
-}
+/** Runtime value of a plugin parameter */
+export type PluginParameterValue = number | boolean | string
 
-/** Context object passed to plugins providing access to the host environment */
+/** Shared context provided to all plugins */
 export interface PluginContext {
   audioContext: AudioContext
   audioEngine: any // IAudioEngine
@@ -49,33 +37,20 @@ export interface PluginContext {
   log: (message: string) => void
 }
 
-/** Runtime state for a parameter value */
-export type PluginParameterValue = number | boolean | string
-
-/** Base interface all plugins must implement */
+/** Base interface for all SonarLox plugins */
 export interface SonarLoxPlugin {
-  /** Called when the plugin is activated */
   activate(context: PluginContext): void
-  /** Called when the plugin is deactivated */
   deactivate(): void
-  /** Called when a parameter changes */
   setParameter(id: string, value: PluginParameterValue): void
-  /** Returns current parameter values */
   getParameters(): Record<string, PluginParameterValue>
 }
 
-/** Audio effect plugin -- inserted between gainNode and pannerNode */
+/** Audio effect plugin -- processes audio via AudioNodes */
 export interface AudioEffectPlugin extends SonarLoxPlugin {
   /** Returns the AudioNode to insert into the chain (input node) */
   getInputNode(): AudioNode
   /** Returns the output node of the effect (may be same as input for single-node effects) */
   getOutputNode(): AudioNode
-}
-
-/** Data returned by visualizer plugins for host-side rendering */
-export interface VisualizerData {
-  points: Array<{ position: [number, number, number]; color: string; size: number }>
-  lines: Array<{ start: [number, number, number]; end: [number, number, number]; color: string }>
 }
 
 /** Visualizer plugin -- returns geometry data for the host to render */
@@ -86,26 +61,30 @@ export interface VisualizerPlugin extends SonarLoxPlugin {
   render?(props: { sources: any[]; audioEngine: any }): React.ReactNode
 }
 
-/** Source data provided to exporter plugins */
-export interface ExporterSourceData {
-  id: SourceId
-  audioBuffer: AudioBuffer
-  position: SourcePosition
-  volume: number
-  label: string
+export interface VisualizerData {
+  geometry: any
+  material: any
 }
 
-/** Exporter plugin -- custom export formats */
+/** Exporter plugin -- renders project to a custom file format */
 export interface ExporterPlugin extends SonarLoxPlugin {
-  /** File extension for the exported file (without dot) */
-  fileExtension: string
-  /** Export label shown in the UI */
-  exportLabel: string
-  /** Performs the export, returns the file data as ArrayBuffer */
-  export(sources: ExporterSourceData[], listenerY: number): Promise<ArrayBuffer>
+  export(): Promise<ArrayBuffer>
 }
 
-/** Serialized plugin state for project save/load */
+/** Metadata for a plugin package */
+export interface PluginManifest {
+  id: string
+  name: string
+  version: string
+  description: string
+  author: string
+  type: PluginType
+  main: string // entry point script
+  parameters: PluginParameterDef[]
+  ui?: string // optional custom UI panel
+}
+
+/** Serialized state of a plugin for project saving */
 export interface SerializedPluginState {
   pluginId: string
   parameters: Record<string, PluginParameterValue>
@@ -114,7 +93,7 @@ export interface SerializedPluginState {
   enabled: boolean
 }
 
-/** Runtime instance of an activated plugin */
+/** Active instance of an activated plugin */
 export interface PluginInstance {
   manifest: PluginManifest
   plugin: SonarLoxPlugin

@@ -11,10 +11,6 @@ interface State {
   error: Error | null
 }
 
-/**
- * Error boundary component for isolating plugin rendering errors.
- * Prevents a single faulty plugin from crashing the entire R3F viewport or app.
- */
 export class PluginErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
@@ -31,14 +27,8 @@ export class PluginErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
-      return (
-        <group>
-          {/* We render nothing in the scene but log the error */}
-          {/* In a real app, we might render a small warning icon in the 3D space */}
-        </group>
-      )
+      return <group />
     }
-
     return this.props.children
   }
 }

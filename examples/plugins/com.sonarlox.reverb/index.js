@@ -1,6 +1,3 @@
-/**
- * Simple Reverb plugin using ConvolverNode
- */
 class SimpleReverb {
   activate(context) {
     this.ctx = context.audioContext;
@@ -44,18 +41,12 @@ class SimpleReverb {
   }
 
   setParameter(id, value) {
-    if (id === 'wet') {
-      this.wetGain.gain.value = value;
-    } else if (id === 'dry') {
-      this.dryGain.gain.value = value;
-    }
+    if (id === 'wet') this.wetGain.gain.value = value;
+    else if (id === 'dry') this.dryGain.gain.value = value;
   }
 
   getParameters() {
-    return {
-      wet: this.wetGain.gain.value,
-      dry: this.dryGain.gain.value
-    };
+    return { wet: this.wetGain.gain.value, dry: this.dryGain.gain.value };
   }
 
   getInputNode() { return this.input; }

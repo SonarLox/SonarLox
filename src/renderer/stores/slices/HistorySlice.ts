@@ -11,9 +11,6 @@ export interface HistorySlice {
   redo: () => void
 }
 
-/**
- * Deep clones state objects for the history stack without using JSON stringification.
- */
 function captureSnapshot(label: string, get: () => AppState): HistoryState {
   const { sources, animations, roomSize } = get()
   
@@ -26,10 +23,7 @@ function captureSnapshot(label: string, get: () => AppState): HistoryState {
     enabled: instance.enabled,
   }))
 
-  // Clone sources (shallow clone each source object)
   const clonedSources = sources.map(s => ({ ...s, position: [...s.position] as [number, number, number] }))
-  
-  // Clone animations
   const clonedAnimations: Record<string, any> = {}
   for (const [id, anim] of Object.entries(animations)) {
     clonedAnimations[id] = {
@@ -54,7 +48,6 @@ export const createHistorySlice: StateCreator<AppState, [], [], HistorySlice> = 
   recordHistory: (label = 'Action') => {
     const { undoStack } = get()
     const snapshot = captureSnapshot(label, get)
-
     set({ 
       undoStack: [...undoStack.slice(-49), snapshot],
       redoStack: [] 

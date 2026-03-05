@@ -9,119 +9,79 @@ export interface AnalyserSnapshot {
 }
 
 /**
- * Interface defining the contract for the audio engine used in SonarLox, managing spatial audio sources and playback.
+ * Interface defining the core capabilities of the spatial audio engine.
  */
 export interface IAudioEngine {
   /**
-   * Initializes the audio engine, setting up the Web Audio API context and required nodes.
+   * Initializes the audio engine and its context.
    */
   init(): Promise<void>
-  
+
   /**
-   * Creates a new audio channel for the given source ID, preparing it for spatial audio processing.
+   * Creates a new audio channel for a specific source.
    */
   createChannel(id: SourceId): void
-  
+
   /**
-   * Removes the audio channel associated with the given source ID from the engine.
+   * Removes an audio channel and its resources.
    */
   removeChannel(id: SourceId): void
-  
+
   /**
-   * Loads an audio file into the specified source using an ArrayBuffer.
+   * Loads an audio file into a source channel from an ArrayBuffer.
    */
-  loadFile(id: SourceId, arrayBuffer: ArrayBuffer): Promise<void>
-  
+  loadFile(id: SourceId, buffer: ArrayBuffer): Promise<void>
+
   /**
-   * Plays a test tone (sine or pink noise) for the specified source ID.
+   * Plays a specific test tone through a source channel.
    */
   playTestTone(id: SourceId, type: 'sine' | 'pink-noise'): Promise<void>
-  
+
   /**
-   * Plays all active audio sources in the engine simultaneously.
+   * Starts playback for all active source channels.
    */
   playAll(): void
-  
+
   /**
-   * Pauses all active audio sources in the engine.
+   * Pauses playback for all active source channels.
    */
   pauseAll(): void
-  
+
   /**
-   * Stops all active audio sources in the engine and resets their playback positions.
+   * Stops playback for all active source channels and resets positions.
    */
   stopAll(): void
-  
+
   /**
-   * Sets the 3D position of the specified audio source in the spatial scene.
+   * Sets the 3D position of a sound source.
    */
   setPosition(id: SourceId, x: number, y: number, z: number): void
-  
+
   /**
-   * Sets the volume level for the specified audio source, ranging from 0 to 1.
+   * Sets the volume level for a sound source.
    */
   setVolume(id: SourceId, volume: number): void
-  
+
   /**
-   * Mutes or unmutes the specified audio source based on the provided boolean value.
-   */
-  setMuted(id: SourceId, muted: boolean): void
-  
-  /**
-   * Soloes or unsoloes the specified audio source, muting all others if solo is enabled.
-   */
-  setSoloed(id: SourceId, soloed: boolean): void
-  
-  /**
-   * Enables or disables looping for all audio sources in the engine.
-   */
-  setLooping(loop: boolean): void
-  
-  /**
-   * Returns whether looping is currently enabled for all audio sources in the engine.
-   */
-  getIsLooping(): boolean
-  
-  /**
-   * Sets the vertical position (Y-axis) of the audio listener in the 3D scene, affecting spatialization.
-   */
-  setListenerY(y: number): void
-  
-  /**
-   * Sets the frequency of the sine wave for the specified source ID, used for test tones or oscillators.
-   */
-  setSineFrequency(id: SourceId, freq: number): void
-  
-  /**
-   * Sets the master volume level for all audio sources in the engine, ranging from 0 to 1.
+   * Sets the master volume for all audio output.
    */
   setMasterVolume(volume: number): void
-  
+
   /**
-   * Returns a snapshot of the audio analysis data for the specified source, or null if unavailable.
+   * Sets the vertical position of the listener in the 3D space.
    */
-  getAnalyserSnapshot(id: SourceId): AnalyserSnapshot | null
-  
+  setListenerY(y: number): void
+
   /**
-   * Returns the AnalyserNode associated with the specified source, or null if not available.
+   * Enables or disables looping for all audio sources.
    */
-  getAnalyser(id: SourceId): AnalyserNode | null
-  
+  setLooping(loop: boolean): void
+
   /**
-   * Sets the audio buffer for the specified source, replacing its current buffer with the new one.
+   * Returns the current looping state.
    */
-  setAudioBuffer(id: SourceId, buffer: AudioBuffer): void
-  
-  /**
-   * Returns the AudioBuffer associated with the specified source, or null if not available.
-   */
-  getAudioBuffer(id: SourceId): AudioBuffer | null
-  
-  /**
-   * Returns an array of all active source IDs currently managed by the engine.
-   */
-  getChannelIds(): SourceId[]
-  
+  getIsLooping(): boolean
+
   /**
    * Returns the total duration of the audio timeline in seconds.
    */
@@ -138,42 +98,32 @@ export interface IAudioEngine {
   getPlayheadPosition(): number
   
   /**
-   * Checks if any audio source in the engine is currently paused.
+   * Returns a snapshot of the current frequency and waveform data for a source.
    */
-  hasAnyPaused(): boolean
-  
-  /**
-   * Checks if any audio source in the engine has an audio buffer loaded.
-   */
-  hasAnyBuffer(): boolean
-  
-  /**
-   * Returns an array of all buffered sources with their audio buffer, position, and volume data.
-   */
-  getAllBufferedSources(): {
-    id: SourceId
-    audioBuffer: AudioBuffer
-    position: [number, number, number]
-    volume: number
-  }[]
-  
-  /**
-   * Enumerates all available input and output audio devices on the system.
-   */
-  enumerateDevices(): Promise<MediaDeviceInfo[]>
-  
-  /**
-   * Sets the output audio device to the one specified by the device ID, updating the Web Audio context.
-   */
-  setOutputDevice(deviceId: string): Promise<void>
-  
-  /**
-   * Returns the underlying AudioContext, or null if not initialized.
-   */
-  getAudioContext(): AudioContext | null
+  getAnalyserSnapshot(id: SourceId): AnalyserSnapshot | null
 
   /**
-   * Returns the gain and panner nodes for a source channel, for plugin effect chain insertion.
+   * Returns the underlying AnalyserNode for a source.
+   */
+  getAnalyser(id: SourceId): AnalyserNode | null
+
+  /**
+   * Sets an audio buffer directly for a source channel.
+   */
+  setAudioBuffer(id: SourceId, buffer: AudioBuffer): void
+
+  /**
+   * Returns the current AudioBuffer for a source channel.
+   */
+  getAudioBuffer(id: SourceId): AudioBuffer | null
+
+  /**
+   * Returns an array of IDs for all currently active source channels.
+   */
+  getChannelIds(): SourceId[]
+
+  /**
+   * Returns the AudioNodes for a source channel, used for effect chain insertion.
    */
   getChannelNodes(id: SourceId): { gainNode: GainNode; pannerNode: PannerNode } | null
 

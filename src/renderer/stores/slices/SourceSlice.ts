@@ -33,11 +33,9 @@ function createDefaultSource(index: number, type: SourceType): AudioSource {
   }
 }
 
-const initialSource = createDefaultSource(1, 'file')
-
 export const createSourceSlice: StateCreator<AppState, [], [], SourceSlice> = (set, get) => ({
-  sources: [initialSource],
-  selectedSourceId: initialSource.id,
+  sources: [createDefaultSource(1, 'file')],
+  selectedSourceId: null,
 
   addSource: (type: SourceType) => {
     get().recordHistory(`Add ${type} source`)

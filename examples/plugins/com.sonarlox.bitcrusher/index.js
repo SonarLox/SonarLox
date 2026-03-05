@@ -1,24 +1,13 @@
-/**
- * Simple Bitcrusher effect using WaveShaperNode for bit depth 
- * and a custom implementation for downsampling.
- */
 class Bitcrusher {
   activate(context) {
     this.ctx = context.audioContext;
     this.input = this.ctx.createGain();
     this.output = this.ctx.createGain();
-    
-    // Use a WaveShaper for bit depth reduction
     this.shaper = this.ctx.createWaveShaper();
     this.bits = 8;
     this.updateCurve();
-
-    // Note: True downsampling is hard with standard nodes without Worklet.
-    // We'll simulate it by reducing the curve resolution.
-    
     this.input.connect(this.shaper);
     this.shaper.connect(this.output);
-    
     context.log('Bitcrusher activated');
   }
 
@@ -45,10 +34,7 @@ class Bitcrusher {
     }
   }
 
-  getParameters() {
-    return { bits: this.bits };
-  }
-
+  getParameters() { return { bits: this.bits }; }
   getInputNode() { return this.input; }
   getOutputNode() { return this.output; }
 }

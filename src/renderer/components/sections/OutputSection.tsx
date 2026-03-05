@@ -86,7 +86,6 @@ export function OutputSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Output Device & Master Volume */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className="section-label">Output</span>
         {outputDevices.length > 0 && (

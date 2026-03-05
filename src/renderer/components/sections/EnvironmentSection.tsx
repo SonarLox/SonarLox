@@ -8,7 +8,6 @@ export function EnvironmentSection() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Listener Height */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="section-label" style={{ paddingBottom: 0 }}>Listener Height</span>
@@ -24,7 +23,6 @@ export function EnvironmentSection() {
         />
       </div>
 
-      {/* Room Size */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="section-label" style={{ paddingBottom: 0 }}>Room Size</span>

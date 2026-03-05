@@ -1,124 +1,66 @@
 import type { AppState, AudioSource, ProjectManifest, SourcePosition, SourceId, SourceAnimation, EasingType } from '../types'
 import type { TransportState } from '../types'
-import type { SerializedPluginState } from '../plugins/types'
-import { encodeWav } from './encodeWav'
-import { audioEngine } from './WebAudioEngine'
+import type { SerializedPluginState, PluginInstance } from '../plugins/types'
 
-const FORMAT_VERSION = '1.1.0'
-const APP_VERSION = 'SonarLox 1.1.0'
-
-export function buildManifest(
-  title: string,
-  sources: AudioSource[],
-  duration: number,
-  sampleRate: number,
-  createdAt?: string,
-  animations?: Record<SourceId, SourceAnimation>,
-): ProjectManifest {
-  const now = new Date().toISOString()
-  const hasTimeline = animations
-    ? Object.values(animations).some((a) => a.keyframes.length > 0)
-    : false
-  return {
-    format: 'sonarlox-project',
-    version: FORMAT_VERSION,
-    createdWith: APP_VERSION,
-    createdAt: createdAt ?? now,
-    updatedAt: now,
-    title,
-    author: '',
-    description: '',
-    duration,
-    sampleRate,
-    audioEmbedMode: 'embedded',
-    sourceCount: sources.length,
-    hasTimeline,
-    hasVideoSync: false,
-    monitoringMode: 'headphones-hrtf',
+/**
+ * Interface representing the complete serialized state of a SonarLox project.
+ */
+export interface SerializedState {
+  version: string
+  sources: Array<{
+    id: string
+    label: string
+    type: string
+    position: [number, number, number]
+    volume: number
+    color: string
+    audioFile?: string
+    sineFrequency?: number
+    muted: boolean
+    soloed: boolean
+  }>
+  listener?: {
+    position: [number, number, number]
+    orientation: [number, number, number]
   }
-}
-
-interface SerializedSource {
-  id: string
-  label: string
-  audioRef: string
-  type: string
-  position: SourcePosition
-  volume: number
-  mute: boolean
-  solo: boolean
-  color: string
-  sineFrequency: number
-}
-
-interface SerializedState {
-  sources: SerializedSource[]
-  listener: {
-    position: SourcePosition
-    orientation: { forward: SourcePosition; up: SourcePosition }
-  }
-  spatial: {
-    distanceModel: string
-    refDistance: number
-    maxDistance: number
-    rolloffFactor: number
-    panningModel: string
-  }
-  room: {
-    dimensions: SourcePosition
+  room?: {
+    dimensions: [number, number, number]
     showGrid: boolean
     showDistanceRings: boolean
-    acoustics: null
+    acoustics: any
   }
-  transport: {
+  transport?: {
     volume: number
     loop: boolean
-    playbackPosition: number
   }
-  camera: {
-    presets: ({ position: SourcePosition; target: SourcePosition } | null)[]
-  }
-  rendering: {
-    monitoringMode: string
-  }
-  preferences: {
-    selectedOutputDevice: string | null
+  preferences?: {
     listenerY: number
+    selectedOutputDevice: string | null
   }
+  camera?: {
+    presets: Array<{ position: [number, number, number]; target: [number, number, number] } | null>
+  }
+  plugins?: SerializedPluginState[]
 }
 
-export function serializeProjectState(
-  appState: AppState,
-  transportState: TransportState
-): string {
-  const sources: SerializedSource[] = appState.sources.map((s, i) => ({
-    id: s.id,
-    label: s.label,
-    audioRef: `source_${i}`,
-    type: s.sourceType,
-    position: s.position,
-    volume: s.volume,
-    mute: s.isMuted,
-    solo: s.isSoloed,
-    color: s.color,
-    sineFrequency: s.sineFrequency,
-  }))
-
+export function serializeProjectState(appState: AppState, transportState: TransportState): string {
   const state: SerializedState = {
-    sources,
+    version: '1.0',
+    sources: appState.sources.map((src) => ({
+      id: src.id,
+      label: src.label,
+      type: src.sourceType,
+      position: src.position,
+      volume: src.volume,
+      color: src.color,
+      audioFile: src.audioFileName ?? undefined,
+      sineFrequency: src.sineFrequency,
+      muted: src.isMuted,
+      soloed: src.isSoloed,
+    })),
     listener: {
       position: [0, appState.listenerY, 0],
-      orientation: {
-        forward: [0, 0, -1],
-        up: [0, 1, 0],
-      },
-    },
-    spatial: {
-      distanceModel: 'inverse',
-      refDistance: 1.0,
-      maxDistance: 50.0,
-      rolloffFactor: 1.0,
-      panningModel: 'HRTF',
+      orientation: [0, 0, -1],
     },
     room: {
       dimensions: [appState.roomSize[0], 10, appState.roomSize[1]],
@@ -129,21 +71,26 @@ export function serializeProjectState(
     transport: {
       volume: appState.masterVolume,
       loop: transportState.isLooping,
-      playbackPosition: transportState.playheadPosition,
+    },
+    preferences: {
+      listenerY: appState.listenerY,
+      selectedOutputDevice: appState.selectedOutputDevice,
     },
     camera: {
       presets: appState.cameraPresets,
     },
-    rendering: {
-      monitoringMode: 'headphones-hrtf',
-    },
-    preferences: {
-      selectedOutputDevice: appState.selectedOutputDevice,
-      listenerY: appState.listenerY,
-    },
   }
 
   return JSON.stringify(state, null, 2)
+}
+
+export function serializeAudioSources(sources: AudioSource[]): Array<{ id: SourceId; name: string }> {
+  return sources
+    .filter((s) => s.audioFileName !== null)
+    .map((s, i) => ({
+      id: s.id,
+      name: `source_${i}.wav`,
+    }))
 }
 
 export interface DeserializedState {
@@ -160,16 +107,16 @@ export function deserializeProjectState(stateJson: Record<string, unknown>): Des
   const s = stateJson as unknown as SerializedState
 
   const sources: AudioSource[] = (s.sources ?? []).map((src) => ({
-    id: src.id ?? crypto.randomUUID(),
-    label: src.label ?? 'Source',
-    sourceType: (src.type as AudioSource['sourceType']) ?? 'file',
-    position: src.position ?? [2, 1, 0],
+    id: src.id,
+    label: src.label,
+    sourceType: (src.type as any) ?? 'file',
+    position: src.position ?? [0, 1, 0],
     volume: src.volume ?? 1.0,
     color: src.color ?? '#ff6622',
-    audioFileName: null, // Will be set after audio loads
+    audioFileName: src.audioFile ?? null,
     sineFrequency: src.sineFrequency ?? 440,
-    isMuted: src.mute ?? false,
-    isSoloed: src.solo ?? false,
+    isMuted: src.muted ?? false,
+    isSoloed: src.soloed ?? false,
   }))
 
   return {
@@ -183,129 +130,57 @@ export function deserializeProjectState(stateJson: Record<string, unknown>): Des
   }
 }
 
-export function serializeAudioSources(
-  sources: AudioSource[]
-): Array<{ name: string; wavBuffer: ArrayBuffer; meta: string }> {
-  const result: Array<{ name: string; wavBuffer: ArrayBuffer; meta: string }> = []
-
-  for (let i = 0; i < sources.length; i++) {
-    const source = sources[i]
-    const buffer = audioEngine.getAudioBuffer(source.id)
-    if (!buffer) continue
-
-    const wavBuffer = encodeWav(buffer)
-    const meta = JSON.stringify({
-      originalFileName: source.audioFileName ?? `source_${i}.wav`,
-      format: 'wav',
-      channels: buffer.numberOfChannels,
-      sampleRate: buffer.sampleRate,
-      bitDepth: 16,
-      durationSeconds: buffer.duration,
-    }, null, 2)
-
-    result.push({
-      name: `source_${i}.wav`,
-      wavBuffer,
-      meta,
-    })
+export function buildManifest(
+  title: string,
+  sources: AudioSource[],
+  duration: number,
+  sampleRate: number,
+  author = 'User',
+  animations: Record<SourceId, SourceAnimation>,
+): ProjectManifest {
+  return {
+    format: 'sonarlox-project',
+    version: '1.0',
+    createdWith: 'SonarLox v1.0',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    title,
+    author,
+    description: '',
+    duration,
+    sampleRate,
+    audioEmbedMode: 'embedded',
+    sourceCount: sources.length,
+    hasTimeline: Object.keys(animations).length > 0,
+    hasVideoSync: false,
+    monitoringMode: 'binaural',
   }
-
-  return result
 }
 
-interface SerializedKeyframe {
-  time: number
-  position: SourcePosition
-  easing: EasingType
+export function serializeTimeline(animations: Record<SourceId, SourceAnimation>): string {
+  return JSON.stringify(animations, null, 2)
 }
 
-interface SerializedTimeline {
-  version: string
-  animations: Record<string, { keyframes: SerializedKeyframe[] }>
+export function deserializeTimeline(timelineJson: Record<string, unknown>): Record<SourceId, SourceAnimation> {
+  return timelineJson as Record<SourceId, SourceAnimation>
 }
 
-export function serializeTimeline(
-  animations: Record<SourceId, SourceAnimation>
-): string {
-  const serialized: SerializedTimeline = {
-    version: '1.1.0',
-    animations: {},
-  }
-  for (const [id, anim] of Object.entries(animations)) {
-    if (anim.keyframes.length > 0) {
-      serialized.animations[id] = {
-        keyframes: anim.keyframes.map((kf) => ({
-          time: kf.time,
-          position: kf.position,
-          easing: kf.easing,
-        })),
-      }
-    }
-  }
-  return JSON.stringify(serialized, null, 2)
+export function serializePluginState(activePlugins: Map<string, PluginInstance>): SerializedPluginState[] {
+  return Array.from(activePlugins.values()).map((instance) => ({
+    pluginId: instance.manifest.id,
+    parameters: instance.parameters,
+    target: instance.target,
+    slot: instance.slot,
+    enabled: instance.enabled,
+  }))
 }
 
-export function deserializeTimeline(
-  timelineJson: Record<string, unknown>
-): Record<SourceId, SourceAnimation> {
-  const result: Record<SourceId, SourceAnimation> = {}
-
-  // Handle v1.0 (empty placeholder) gracefully
-  const data = timelineJson as unknown as SerializedTimeline
-  if (!data.animations) return result
-
-  for (const [id, anim] of Object.entries(data.animations)) {
-    if (!anim?.keyframes?.length) continue
-    result[id] = {
-      sourceId: id,
-      keyframes: anim.keyframes.map((kf) => ({
-        time: kf.time ?? 0,
-        position: kf.position ?? [0, 0, 0],
-        easing: kf.easing ?? 'linear',
-      })),
-    }
-  }
-
-  return result
-}
-
-/** Serializes active plugin state for project save */
-export function serializePluginState(activePlugins: Map<string, {
-  manifest: { id: string }
-  parameters: Record<string, number | boolean | string>
-  target: string
-  slot: number
-  enabled: boolean
-}>): SerializedPluginState[] {
-  const result: SerializedPluginState[] = []
-  for (const [, instance] of activePlugins) {
-    result.push({
-      pluginId: instance.manifest.id,
-      parameters: { ...instance.parameters },
-      target: instance.target as SourceId | 'master',
-      slot: instance.slot,
-      enabled: instance.enabled,
-    })
-  }
-  return result
-}
-
-/** Deserializes plugin state from project data */
-export function deserializePluginState(
-  data: Record<string, unknown> | undefined
-): SerializedPluginState[] {
-  if (!data) return []
-  const plugins = (data as { plugins?: unknown[] }).plugins
-  if (!Array.isArray(plugins)) return []
+export function deserializePluginState(stateJson: Record<string, unknown>): SerializedPluginState[] {
+  const plugins = (stateJson as any).plugins as any[]
+  if (!plugins || !Array.isArray(plugins)) return []
 
   return plugins
-    .filter((p): p is Record<string, unknown> => p !== null && typeof p === 'object')
     .map((p) => ({
       pluginId: (p.pluginId as string) ?? '',
-      parameters: (p.parameters as Record<string, number | boolean | string>) ?? {},
-      target: (p.target as SourceId | 'master') ?? 'master',
-      slot: (p.slot as number) ?? 0,
-      enabled: (p.enabled as boolean) ?? true,
-    }))
-    .filter((p) => p.pluginId !== '')
+      parameters: (p.parameters as Record<string, number | boolean | string>) ?? {},\r\n      target: (p.target as SourceId | 'master') ?? 'master',\r\n      slot: (p.slot as number) ?? 0,\r\n      enabled: (p.enabled as boolean) ?? true,\r\n    }))\r\n    .filter((p) => p.pluginId !== '')\r\n}\r\n"
 }

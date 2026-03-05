@@ -5,16 +5,10 @@ import { audioEngine } from '../audio/WebAudioEngine'
 import { VisualizerPlugin } from '../plugins/types'
 import { PluginErrorBoundary } from './PluginErrorBoundary'
 
-/**
- * Component that renders visualizer plugins within the R3F viewport.
- * Calls the update() method of each active visualizer plugin every frame
- * and renders the geometry returned by the plugin.
- */
 export function PluginVisualizers() {
   const activePlugins = usePluginStore((s) => s.activePlugins)
   const sources = useAppStore((s) => s.sources)
 
-  // Filter for visualizer plugins
   const visualizers = Array.from(activePlugins.values()).filter(
     (p) => p.manifest.type === 'visualizer' && p.enabled
   )
@@ -37,10 +31,8 @@ function VisualizerLayer({ instance, sources }: { instance: any; sources: any[] 
 
   useFrame(() => {
     if (typeof plugin.update !== 'function') return
-    // Note: Legacy update() approach handled here if needed.
   })
 
-  // If the plugin implements a 'render' method that returns a ReactNode, we use it.
   if (typeof plugin.render === 'function') {
     return (
       <group>

@@ -31,14 +31,13 @@ export function useProjectIO() {
 
     const transportState = useTransportStore.getState()
     const stateJsonRaw = serializeProjectState(appState, transportState)
-    // Inject plugin state into the state JSON
     const stateObj = JSON.parse(stateJsonRaw)
     const pluginState = usePluginStore.getState().activePlugins
     stateObj.plugins = serializePluginState(pluginState)
     const stateJson = JSON.stringify(stateObj, null, 2)
     const audioFiles = serializeAudioSources(appState.sources)
     const duration = audioEngine.getDuration()
-    const sampleRate = 44100 // Default; could read from first buffer
+    const sampleRate = 44100
 
     const manifest = buildManifest(
       appState.projectTitle,
@@ -79,26 +78,22 @@ export function useProjectIO() {
         defaultId: 0,
         cancelId: 2,
       })
-      if (response === 2) return // Cancel
-      if (response === 0) await saveProject() // Save first
+      if (response === 2) return
+      if (response === 0) await saveProject()
     }
 
     const result = await window.api.openProject()
     if (!result) return
 
-    // Stop playback
     useTransportStore.getState().stop()
 
-    // Clear existing audio channels
     for (const id of audioEngine.getChannelIds()) {
       audioEngine.removeChannel(id)
     }
 
-    // Deserialize state and timeline
     const deserialized = deserializeProjectState(result.state)
     const animations = deserializeTimeline(result.timeline)
 
-    // Map source index to audio file
     const audioFileMap = new Map<number, { buffer: ArrayBuffer; meta: Record<string, unknown> }>()
     for (const af of result.audioFiles) {
       const match = af.name.match(/source_(\d+)\.wav/)
@@ -107,10 +102,8 @@ export function useProjectIO() {
       }
     }
 
-    // Initialize audio engine
     await audioEngine.init()
 
-    // Restore sources with audio
     for (let i = 0; i < deserialized.sources.length; i++) {
       const source = deserialized.sources[i]
       audioEngine.createChannel(source.id)
@@ -127,7 +120,6 @@ export function useProjectIO() {
       }
     }
 
-    // Restore store state
     useAppStore.setState({
       sources: deserialized.sources,
       selectedSourceId: deserialized.sources[0]?.id ?? null,
@@ -148,14 +140,12 @@ export function useProjectIO() {
     audioEngine.setMasterVolume(deserialized.masterVolume)
     audioEngine.setListenerY(deserialized.listenerY)
 
-    // Restore plugin state
     const pluginStore = usePluginStore.getState()
-    // Deactivate all current plugins
     for (const [id] of pluginStore.activePlugins) {
       unloadPlugin(id)
       pluginStore.deactivatePlugin(id)
     }
-    // Load saved plugins
+    
     const savedPlugins = deserializePluginState(result.state)
     if (savedPlugins.length > 0) {
       const available = pluginStore.availablePlugins
@@ -172,9 +162,7 @@ export function useProjectIO() {
             instance.plugin.setParameter(paramId, value)
           }
           pluginStore.activatePlugin(instance)
-        } catch {
-          // Plugin not available -- skip silently
-        }
+        } catch { /* skip */ }
       }
       rebuildAllEffectChains()
     }
@@ -190,19 +178,16 @@ export function useProjectIO() {
         defaultId: 0,
         cancelId: 2,
       })
-      if (response === 2) return // Cancel
-      if (response === 0) await saveProject() // Save first
+      if (response === 2) return
+      if (response === 0) await saveProject()
     }
 
-    // Stop playback
     useTransportStore.getState().stop()
 
-    // Clear audio
     for (const id of audioEngine.getChannelIds()) {
       audioEngine.removeChannel(id)
     }
 
-    // Reset store to defaults
     const newId = crypto.randomUUID()
     useAppStore.setState({
       sources: [{
@@ -235,7 +220,6 @@ export function useProjectIO() {
     audioEngine.setMasterVolume(1.0)
     audioEngine.setListenerY(0)
 
-    // Deactivate all plugins
     const pluginStore = usePluginStore.getState()
     for (const [id] of pluginStore.activePlugins) {
       unloadPlugin(id)

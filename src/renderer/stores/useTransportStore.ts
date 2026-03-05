@@ -4,56 +4,46 @@ import { useAppStore } from './useAppStore'
 
 /**
  * State interface for the transport controls in the spatial audio editor.
- * Manages playback state, playhead position, and looping behavior.
+ * Manages playback status, playhead position, and audio duration.
  */
-interface TransportStoreState {
+export interface TransportState {
   isPlaying: boolean
   isPaused: boolean
   playheadPosition: number
   duration: number
   isLooping: boolean
-
   play: () => void
   pause: () => void
   stop: () => void
-  seek: (position: number) => void
+  seek: (pos: number) => void
   toggleLoop: () => void
-  updatePlayhead: () => void
+  updatePlayhead: (pos: number) => void
 }
 
-/**
- * Animation frame ID used to manage the playhead update loop.
- */
-let animFrameId: number | null = null
+let playheadInterval: number | null = null
 
-/**
- * Starts a continuous loop to update the playhead position using requestAnimationFrame.
- * This is used during playback to keep the playhead moving in sync with audio.
- */
-function startPlayheadLoop(update: () => void) {
-  const tick = () => {
-    update()
-    animFrameId = requestAnimationFrame(tick)
-  }
-  animFrameId = requestAnimationFrame(tick)
+function startPlayheadLoop(set: any, get: any) {
+  if (playheadInterval) return
+  playheadInterval = window.setInterval(() => {
+    const pos = audioEngine.getPlayheadPosition()
+    const duration = audioEngine.getDuration()
+    set({ playheadPosition: pos, duration })
+
+    // Stop if reached end and not looping
+    if (!get().isLooping && pos >= duration && duration > 0) {
+      get().stop()
+    }
+  }, 33) as unknown as number
 }
 
-/**
- * Stops the playhead update loop by canceling the animation frame.
- * Called when playback is paused or stopped.
- */
 function stopPlayheadLoop() {
-  if (animFrameId !== null) {
-    cancelAnimationFrame(animFrameId)
-    animFrameId = null
+  if (playheadInterval) {
+    clearInterval(playheadInterval)
+    playheadInterval = null
   }
 }
 
-/**
- * Zustand store for managing transport controls (play, pause, stop, seek, loop).
- * Integrates with the Web Audio Engine to control playback and updates the UI playhead.
- */
-export const useTransportStore = create<TransportStoreState>((set, get) => ({
+export const useTransportStore = create<TransportState>((set, get) => ({
   isPlaying: false,
   isPaused: false,
   playheadPosition: 0,
@@ -62,10 +52,9 @@ export const useTransportStore = create<TransportStoreState>((set, get) => ({
 
   play: () => {
     audioEngine.playAll()
-    const duration = audioEngine.getDuration()
-    set({ isPlaying: true, isPaused: false, duration })
+    set({ isPlaying: true, isPaused: false })
     useAppStore.getState().setIsPlaying(true)
-    startPlayheadLoop(get().updatePlayhead)
+    startPlayheadLoop(set, get)
   },
 
   pause: () => {
@@ -82,9 +71,9 @@ export const useTransportStore = create<TransportStoreState>((set, get) => ({
     stopPlayheadLoop()
   },
 
-  seek: (_position: number) => {
-    audioEngine.setPlayheadPosition(_position)
-    set({ playheadPosition: _position })
+  seek: (pos: number) => {
+    audioEngine.setPlayheadPosition(pos)
+    set({ playheadPosition: pos })
   },
 
   toggleLoop: () => {
@@ -94,12 +83,10 @@ export const useTransportStore = create<TransportStoreState>((set, get) => ({
     useAppStore.getState().setIsLooping(next)
   },
 
-  updatePlayhead: () => {
-    const pos = audioEngine.getPlayheadPosition()
+  updatePlayhead: (pos: number) => {
     const duration = audioEngine.getDuration()
     set({ playheadPosition: pos, duration })
 
-    // Check if playback ended (non-looping, past duration)
     if (!get().isLooping && pos >= duration && duration > 0) {
       get().stop()
     }

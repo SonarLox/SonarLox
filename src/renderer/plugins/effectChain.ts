@@ -5,8 +5,6 @@ import { usePluginStore } from './usePluginStore'
 
 /**
  * Rebuilds the audio effect chain for a specific source or the master output.
- * Disconnects the starting node, inserts effect nodes in slot order,
- * then reconnects to the ending node.
  */
 export function rebuildEffectChain(target: SourceId | 'master'): void {
   if (target === 'master') {
@@ -18,20 +16,15 @@ export function rebuildEffectChain(target: SourceId | 'master'): void {
   if (!nodes) return
 
   const { gainNode, pannerNode } = nodes
-
-  // Disconnect gainNode from everything
   gainNode.disconnect()
 
-  // Get sorted effect instances for this source
   const effects = usePluginStore.getState().getEffectsForSource(target)
 
   if (effects.length === 0) {
-    // Direct connection: gain -> panner
     gainNode.connect(pannerNode)
     return
   }
 
-  // Chain effects: gain -> effect1.input ... effect1.output -> effect2.input ... -> panner
   let lastOutput: AudioNode = gainNode
 
   for (const instance of effects) {
@@ -43,7 +36,6 @@ export function rebuildEffectChain(target: SourceId | 'master'): void {
       lastOutput = effectPlugin.getOutputNode()
     } catch (err) {
       console.error(`Failed to connect plugin ${instance.manifest.id}:`, err)
-      // Skip this effect and continue the chain
     }
   }
 
@@ -55,14 +47,10 @@ export function rebuildMasterEffectChain(): void {
   const ctx = audioEngine.getAudioContext()
   if (!ctx) return
 
-  // In WebAudioEngine, the master chain is:
-  // masterGainNode -> [master effects] -> masterAnalyserNode -> destination
-  
   const nodes = (audioEngine as any).getMasterNodes?.()
   if (!nodes) return
 
   const { masterGainNode, masterAnalyserNode } = nodes
-  
   masterGainNode.disconnect()
 
   const effects = usePluginStore.getState().getMasterEffects()

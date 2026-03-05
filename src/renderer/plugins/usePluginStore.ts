@@ -6,18 +6,15 @@ interface PluginStoreState {
   availablePlugins: PluginManifest[]
   activePlugins: Map<string, PluginInstance>
   isScanning: boolean
-
+  
   setAvailablePlugins: (plugins: PluginManifest[]) => void
-  setIsScanning: (v: boolean) => void
-
+  setIsScanning: (isScanning: boolean) => void
   activatePlugin: (instance: PluginInstance) => void
   deactivatePlugin: (pluginId: string) => void
   togglePlugin: (pluginId: string) => void
-
   setPluginParameter: (pluginId: string, paramId: string, value: PluginParameterValue) => void
   setPluginTarget: (pluginId: string, target: SourceId | 'master') => void
-  setPluginSlot: (pluginId: string, slot: number) => void
-
+  
   getEffectsForSource: (sourceId: SourceId) => PluginInstance[]
   getMasterEffects: () => PluginInstance[]
   getExporterPlugins: () => PluginInstance[]
@@ -28,59 +25,52 @@ export const usePluginStore = create<PluginStoreState>((set, get) => ({
   activePlugins: new Map(),
   isScanning: false,
 
-  setAvailablePlugins: (plugins) => set({ availablePlugins: plugins }),
+  setAvailablePlugins: (availablePlugins) => set({ availablePlugins }),
   setIsScanning: (isScanning) => set({ isScanning }),
 
   activatePlugin: (instance) => {
-    const next = new Map(get().activePlugins)
-    next.set(instance.manifest.id, instance)
-    set({ activePlugins: next })
+    set((state) => {
+      const next = new Map(state.activePlugins)
+      next.set(instance.manifest.id, instance)
+      return { activePlugins: next }
+    })
   },
 
   deactivatePlugin: (pluginId) => {
-    const next = new Map(get().activePlugins)
-    const instance = next.get(pluginId)
-    if (instance) {
-      instance.plugin.deactivate()
+    set((state) => {
+      const next = new Map(state.activePlugins)
       next.delete(pluginId)
-      set({ activePlugins: next })
-    }
+      return { activePlugins: next }
+    })
   },
 
   togglePlugin: (pluginId) => {
-    const next = new Map(get().activePlugins)
-    const instance = next.get(pluginId)
-    if (instance) {
-      instance.enabled = !instance.enabled
-      set({ activePlugins: next })
-    }
+    set((state) => {
+      const next = new Map(state.activePlugins)
+      const instance = next.get(pluginId)
+      if (instance) {
+        instance.enabled = !instance.enabled
+      }
+      return { activePlugins: next }
+    })
   },
 
   setPluginParameter: (pluginId, paramId, value) => {
-    const next = new Map(get().activePlugins)
-    const instance = next.get(pluginId)
+    const { activePlugins } = get()
+    const instance = activePlugins.get(pluginId)
     if (instance) {
       instance.parameters[paramId] = value
       instance.plugin.setParameter(paramId, value)
-      set({ activePlugins: next })
+      set({ activePlugins: new Map(activePlugins) })
     }
   },
 
   setPluginTarget: (pluginId, target) => {
-    const next = new Map(get().activePlugins)
-    const instance = next.get(pluginId)
+    const { activePlugins } = get()
+    const instance = activePlugins.get(pluginId)
     if (instance) {
       instance.target = target
-      set({ activePlugins: next })
-    }
-  },
-
-  setPluginSlot: (pluginId, slot) => {
-    const next = new Map(get().activePlugins)
-    const instance = next.get(pluginId)
-    if (instance) {
-      instance.slot = slot
-      set({ activePlugins: next })
+      set({ activePlugins: new Map(activePlugins) })
     }
   },
 

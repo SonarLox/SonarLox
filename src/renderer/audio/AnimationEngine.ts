@@ -9,18 +9,16 @@ function easeIn(t: number): number {
 }
 
 function easeOut(t: number): number {
-  const inv = 1 - t
-  return 1 - inv * inv * inv
+  const f = t - 1
+  return f * f * f + 1
 }
 
 function easeInOut(t: number): number {
-  return t < 0.5
-    ? 4 * t * t * t
-    : 1 - Math.pow(-2 * t + 2, 3) / 2
+  return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1
 }
 
 const EASING_FNS: Record<EasingType, (t: number) => number> = {
-  'linear': easeLinear,
+  linear: easeLinear,
   'ease-in': easeIn,
   'ease-out': easeOut,
   'ease-in-out': easeInOut,
@@ -34,10 +32,6 @@ function lerpPosition(a: SourcePosition, b: SourcePosition, t: number): SourcePo
   return [lerp(a[0], b[0], t), lerp(a[1], b[1], t), lerp(a[2], b[2], t)]
 }
 
-/**
- * Catmull-Rom spline interpolation for smooth 3D paths.
- * Uses four control points: p0, p1, p2, p3. Interpolates between p1 and p2.
- */
 function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
   const v0 = (p2 - p0) * 0.5
   const v1 = (p3 - p1) * 0.5
@@ -67,7 +61,6 @@ export function getAnimatedPosition(
   if (time <= kfs[0].time) return kfs[0].position
   if (time >= kfs[kfs.length - 1].time) return kfs[kfs.length - 1].position
 
-  // Binary search for bracket
   let lo = 0
   let hi = kfs.length - 1
   while (lo < hi - 1) {
@@ -84,12 +77,10 @@ export function getAnimatedPosition(
   const rawT = (time - kf0.time) / span
   const easedT = (EASING_FNS[kf0.easing] ?? easeLinear)(rawT)
 
-  // For linear, just use lerp
   if (kf0.easing === 'linear') {
     return lerpPosition(kf0.position, kf1.position, easedT)
   }
 
-  // For others, use spline if we have enough context
   const p0 = kfs[Math.max(0, lo - 1)].position
   const p1 = kf0.position
   const p2 = kf1.position
@@ -105,12 +96,11 @@ export interface AnimatedPositionSample {
 
 export function getAnimatedPositionsAtIntervals(
   sourceId: SourceId,
+  duration: number,
   animations: Record<SourceId, SourceAnimation>,
   fallback: SourcePosition,
-  duration: number,
-  intervalMs: number,
+  intervalSec: number,
 ): AnimatedPositionSample[] {
-  const intervalSec = intervalMs / 1000
   const samples: AnimatedPositionSample[] = []
   for (let t = 0; t <= duration; t += intervalSec) {
     samples.push({

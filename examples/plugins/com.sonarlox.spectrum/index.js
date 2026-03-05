@@ -1,6 +1,3 @@
-/**
- * Spectrum Visualizer plugin using R3F
- */
 class SpectrumVisualizer {
   activate(context) {
     this.ctx = context.audioContext;
@@ -10,9 +7,7 @@ class SpectrumVisualizer {
   deactivate() {}
 
   setParameter(id, value) {
-    if (id === 'scale') {
-      this.scale = value;
-    }
+    if (id === 'scale') this.scale = value;
   }
 
   getParameters() {
@@ -21,7 +16,7 @@ class SpectrumVisualizer {
 
   render({ sources, audioEngine }) {
     return React.createElement('group', null,
-      sources.map((source, i) => {
+      sources.map((source) => {
         return React.createElement(SpectrumBars, {
           key: source.id,
           sourceId: source.id,
@@ -36,27 +31,19 @@ class SpectrumVisualizer {
 }
 
 function SpectrumBars({ sourceId, position, color, scale, audioEngine }) {
-  const meshRef = React.useRef();
   const [data] = React.useState(() => new Float32Array(32));
-
-  // Note: we can't use @react-three/fiber's useFrame here easily 
-  // if we don't have access to the library in the sandbox.
-  // But we are in the same process, so we might be able to use it if it's passed or globally available.
-  // For now, let's assume we can use standard React hooks.
   
   React.useEffect(() => {
     let frame;
     const update = () => {
       const snapshot = audioEngine.getAnalyserSnapshot(sourceId);
       if (snapshot && snapshot.frequency) {
-        // Average frequency bins to fit 32 bars
         const binsPerBar = Math.floor(snapshot.frequency.length / 32);
         for (let i = 0; i < 32; i++) {
           let sum = 0;
           for (let j = 0; j < binsPerBar; j++) {
             sum += snapshot.frequency[i * binsPerBar + j];
           }
-          // snapshot.frequency is in dB (-100 to 0)
           const val = Math.max(0, (sum / binsPerBar + 100) / 100);
           data[i] = val * scale;
         }

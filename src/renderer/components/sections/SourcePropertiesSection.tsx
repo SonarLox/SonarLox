@@ -85,7 +85,7 @@ export function SourcePropertiesSection() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Volume</span>
+          <span className="section-label" style={{ paddingBottom: 0 }}>Volume</span>
           <span className="slider-value">{Math.round(selectedSource.volume * 100)}%</span>
         </div>
         <input

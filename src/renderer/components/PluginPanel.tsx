@@ -5,7 +5,7 @@ import { loadPlugin, unloadPlugin } from '../plugins/pluginLoader'
 import { rebuildEffectChain, rebuildAllEffectChains } from '../plugins/effectChain'
 import { useToast } from './Toast'
 import { PluginEditor } from './PluginEditor'
-import type { PluginManifest, PluginInstance } from '../plugins/types'
+import type { PluginManifest } from '../plugins/types'
 
 export function PluginPanel() {
   const { showToast } = useToast()
@@ -17,7 +17,6 @@ export function PluginPanel() {
   const [pluginsDir, setPluginsDir] = useState<string>('')
   const [selectedPluginId, setSelectedPluginId] = useState<string | null>(null)
 
-  // Scan for plugins on mount
   useEffect(() => {
     handleScan()
     if (window.api?.getPluginsDir) {
@@ -70,7 +69,6 @@ export function PluginPanel() {
     const oldTarget = instance.target
     store.setPluginTarget(pluginId, target as any)
 
-    // Rebuild chains for both old and new targets
     if (instance.manifest.type === 'audio-effect') {
       rebuildEffectChain(oldTarget)
       rebuildEffectChain(target as any)
@@ -95,18 +93,9 @@ export function PluginPanel() {
       </div>
 
       {availablePlugins.length === 0 ? (
-        <div style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: 10,
-          color: 'var(--text-muted)',
-          lineHeight: 1.5,
-        }}>
+        <div className="readout-small">
           No plugins found.
-          {pluginsDir && (
-            <div style={{ marginTop: 4, wordBreak: 'break-all' }}>
-              Place plugins in: <span style={{ color: 'var(--text-secondary)' }}>{pluginsDir}</span>
-            </div>
-          )}
+          {pluginsDir && <div style={{ marginTop: 4 }}>Place in: {pluginsDir}</div>}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -115,19 +104,17 @@ export function PluginPanel() {
             const instance = activePlugins.get(manifest.id)
 
             return (
-              <div key={manifest.id} style={{
+              <div key={manifest.id} className="plugin-item" style={{
                 background: 'var(--bg-elevated)',
                 border: `1px solid ${isActive ? 'var(--accent-teal)' : 'var(--border-subtle)'}`,
                 borderRadius: 4,
                 padding: '6px 8px',
               }}>
-                {/* Plugin header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <button
                     className={`btn-icon ${isActive ? 'btn-icon--soloed' : ''}`}
                     onClick={() => handleToggleActive(manifest)}
                     style={{ fontSize: 9, width: 18, height: 18 }}
-                    title={isActive ? 'Disable plugin' : 'Enable plugin'}
                   >
                     {isActive ? 'ON' : 'OFF'}
                   </button>
@@ -147,30 +134,19 @@ export function PluginPanel() {
                       className="btn-icon"
                       onClick={() => setSelectedPluginId(manifest.id)}
                       style={{ fontSize: 10, width: 18, height: 18 }}
-                      title="Open editor"
                     >
                       EDIT
                     </button>
                   )}
-                  {!isActive && (
-                     <span style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: 8,
-                      color: 'var(--text-muted)',
-                      textTransform: 'uppercase',
-                    }}>
-                      {manifest.type.replace('audio-', '')}
-                    </span>
-                  )}
                 </div>
 
-                {/* Target selector for audio effects */}
                 {isActive && instance && manifest.type === 'audio-effect' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6, borderTop: '1px solid var(--border-subtle)', paddingTop: 4 }}>
                     <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>TARGET</span>
                     <select
                       value={instance.target}
                       onChange={(e) => handleTargetChange(manifest.id, e.target.value)}
+                      className="target-select"
                       style={{
                         flex: 1,
                         background: 'transparent',
@@ -184,9 +160,7 @@ export function PluginPanel() {
                     >
                       <option value="master">MASTER</option>
                       {sources.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.label.toUpperCase()}
-                        </option>
+                        <option key={s.id} value={s.id}>{s.label.toUpperCase()}</option>
                       ))}
                     </select>
                   </div>

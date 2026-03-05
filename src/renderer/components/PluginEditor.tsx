@@ -2,19 +2,14 @@ import { useState, useCallback } from 'react'
 import { useAppStore } from '../stores/useAppStore'
 import { usePluginStore } from '../plugins/usePluginStore'
 import { PluginInstance, PluginParameterDef, PluginParameterValue } from '../plugins/types'
-import { SourceId } from '../types'
 
 interface PluginEditorProps {
   instance: PluginInstance
   onClose: () => void
 }
 
-/**
- * Rich editor overlay for plugin parameters.
- * Supports sliders, toggles, and file pickers.
- */
 export function PluginEditor({ instance, onClose }: PluginEditorProps) {
-  const { manifest, parameters, plugin, target, enabled } = instance
+  const { manifest, parameters, enabled } = instance
   const setPluginParameter = usePluginStore((s) => s.setPluginParameter)
   const togglePlugin = usePluginStore((s) => s.togglePlugin)
   const recordHistory = useAppStore((s) => s.recordHistory)
