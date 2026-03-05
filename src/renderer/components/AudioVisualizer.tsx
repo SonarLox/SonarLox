@@ -6,19 +6,55 @@ import { audioEngine } from '../audio/WebAudioEngine'
 import { useAppStore } from '../stores/useAppStore'
 import type { SourceId } from '../types'
 
+/**
+ * Number of bars in the audio visualizer
+ */
 const BAR_COUNT = 16
+
+/**
+ * Width of each bar in the visualizer
+ */
 const BAR_WIDTH = 0.06
+
+/**
+ * Gap between bars in the visualizer
+ */
 const BAR_GAP = 0.02
+
+/**
+ * Maximum height of bars in the visualizer
+ */
 const MAX_BAR_HEIGHT = 0.8
+
+/**
+ * Vertical offset for positioning the visualizer relative to the source
+ */
 const Y_OFFSET = 0.6
 
+/**
+ * Color for low frequency values in the visualizer
+ */
 const lowColor = new Color('#22cc44')
+
+/**
+ * Color for high frequency values in the visualizer
+ */
 const highColor = new Color('#ff8800')
 
+/**
+ * Props for the AudioVisualizer component
+ */
 interface AudioVisualizerProps {
+  /**
+   * Unique identifier of the audio source to visualize
+   */
   sourceId: SourceId
 }
 
+/**
+ * Visualizes the frequency data of an audio source in 3D space using a bar graph
+ * that updates in real-time based on the audio's frequency spectrum
+ */
 export function AudioVisualizer({ sourceId }: AudioVisualizerProps) {
   const groupRef = useRef<import('three').Group>(null)
   const barRefs = useRef<(Mesh | null)[]>([])
