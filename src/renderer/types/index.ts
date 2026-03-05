@@ -1,16 +1,53 @@
 export type SourcePosition = [number, number, number]
 
+/**
+ * Unique identifier for audio sources in the spatial audio editor
+ */
 export type SourceId = string
 
+/**
+ * Easing types for animation keyframes in spatial audio
+ */
+export type EasingType = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out'
+
+/**
+ * Keyframe representing a position change at a specific time with easing
+ */
+export interface Keyframe {
+  time: number
+  position: SourcePosition
+  easing: EasingType
+}
+
+/**
+ * Animation data for a specific audio source with its keyframes
+ */
+export interface SourceAnimation {
+  sourceId: SourceId
+  keyframes: Keyframe[]
+}
+
+/**
+ * Predefined color palette for audio source visualization
+ */
 export const SOURCE_COLORS = [
   '#ff6622', '#2288ff', '#22cc44', '#ff2266',
   '#ffcc00', '#aa44ff', '#00cccc', '#ff8844',
 ] as const
 
+/**
+ * Maximum number of audio sources supported in the editor
+ */
 export const MAX_SOURCES = 8
 
+/**
+ * Types of audio sources available in the editor
+ */
 export type SourceType = 'file' | 'tone' | 'midi-track'
 
+/**
+ * Audio source configuration with position, volume, and playback settings
+ */
 export interface AudioSource {
   id: SourceId
   label: string
@@ -24,6 +61,9 @@ export interface AudioSource {
   isSoloed: boolean
 }
 
+/**
+ * Transport state for playback controls and position tracking
+ */
 export interface TransportState {
   isPlaying: boolean
   isPaused: boolean
@@ -32,17 +72,26 @@ export interface TransportState {
   isLooping: boolean
 }
 
+/**
+ * Camera preset configuration with position and target for 3D view
+ */
 export interface CameraPreset {
   position: [number, number, number]
   target: [number, number, number]
 }
 
+/**
+ * Camera command for controlling camera presets and navigation
+ */
 export type CameraCommand =
   | { type: 'home' }
   | { type: 'recall'; index: number }
   | { type: 'save'; index: number }
   | null
 
+/**
+ * Application state management for the SonarLox spatial audio editor
+ */
 export interface AppState {
   // Multi-source
   sources: AudioSource[]
@@ -85,6 +134,16 @@ export interface AppState {
   markDirty: () => void
   markClean: () => void
 
+  // Animation
+  animations: Record<SourceId, SourceAnimation>
+  isRecordingKeyframes: boolean
+  recordQuantize: number
+  setKeyframe: (sourceId: SourceId, time: number, position: SourcePosition, easing?: EasingType) => void
+  removeKeyframe: (sourceId: SourceId, time: number) => void
+  clearAnimation: (sourceId: SourceId) => void
+  setIsRecordingKeyframes: (v: boolean) => void
+  setRecordQuantize: (q: number) => void
+
   // Export
   isExporting: boolean
   setIsExporting: (v: boolean) => void
@@ -98,16 +157,25 @@ export interface AppState {
   setCameraCommand: (cmd: CameraCommand) => void
 }
 
+/**
+ * Result from opening an audio file in the editor
+ */
 export interface AudioFileResult {
   buffer: ArrayBuffer
   name: string
 }
 
+/**
+ * Result from saving a WAV file
+ */
 export interface SaveWavResult {
   saved: boolean
   path?: string
 }
 
+/**
+ * Project manifest containing metadata about the project
+ */
 export interface ProjectManifest {
   format: 'sonarlox-project'
   version: string
@@ -126,6 +194,9 @@ export interface ProjectManifest {
   monitoringMode: string
 }
 
+/**
+ * Data structure for saving a project including all necessary components
+ */
 export interface ProjectSaveData {
   filePath: string
   manifest: string
@@ -134,6 +205,9 @@ export interface ProjectSaveData {
   audioFiles: Array<{ name: string; wavBuffer: ArrayBuffer; meta: string }>
 }
 
+/**
+ * Result from opening a project file
+ */
 export interface ProjectOpenResult {
   manifest: ProjectManifest
   state: Record<string, unknown>
@@ -142,6 +216,9 @@ export interface ProjectOpenResult {
   filePath: string
 }
 
+/**
+ * Electron API interface for communication between renderer and main processes
+ */
 export interface ElectronAPI {
   openAudioFile: () => Promise<AudioFileResult | null>
   openMidiFile: () => Promise<AudioFileResult | null>
