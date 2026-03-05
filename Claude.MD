@@ -43,6 +43,7 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app -- load 
 - Undo/Redo: Ctrl+Z/Ctrl+Y with selective state snapshots
 - Drag & Drop: Drop audio/MIDI files directly into the 3D room
 - Timeline: Waveform scrubbing, automation lanes, Catmull-Rom spline interpolation for keyframed animations
+- Spatial Choreography: Procedural motion primitives generating keyframe arrays from psychoacoustic behaviours. `Choreography.ts` has types + `generateKeyframes()`. `useChoreography` hook bridges to AnimationSlice. 12+ primitives across tension/intimacy/release/disorientation/conversation registers.
 - Toasts & Dialogs: Console-styled status strips and native OS confirmation dialogs
 
 ## Performance Pattern: Zustand Transient Updates
@@ -77,6 +78,7 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app -- load 
 - Test collapsible sections: Click section headers to collapse/expand, chevron rotates, content animates in
 - Test video: Load MP4, press play, video and audio in sync. Frame-step with arrows. TC offset works.
 - Test video screen: 3D screen stays at fixed orientation, can be dragged and locked
+- Test choreography: Apply a behaviour to a source, confirm keyframes generated and motion path visible in timeline
 
 ## Model Routing
 

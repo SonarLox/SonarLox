@@ -261,6 +261,55 @@ Missing video on reopen triggers "locate file" dialog.
 
 ---
 
+## Spatial Choreography Engine
+
+Procedural motion library that generates keyframe arrays from named psychoacoustic behaviours, replacing manual keyframe placement for common spatial patterns.
+
+### Architecture
+
+```
+ChoreographyBehaviour (union of 12+ primitives)
+  + ChoreographyContext { sourceId, startPosition, startTime, bpm, roomBounds }
+  -> generateKeyframes() -> GeneratedKeyframes
+  -> useChoreography hook -> AnimationSlice.setKeyframe() calls
+```
+
+### Emotional Registers
+
+Each register has at least 2 motion primitives:
+
+| Register | Perceptual Effect |
+|---|---|
+| **Tension** | Spatial unease, instability, threat |
+| **Intimacy** | Closeness, warmth, presence |
+| **Release** | Resolution, arrival, settling |
+| **Disorientation** | Confusion, loss of grounding |
+| **Conversation** | Two sources responding to each other spatially (dual sourceId) |
+
+### Design Principles
+
+- All motion grounded in psychoacoustic research (HRTF sensitivity, ILD/ITD cues, distance perception)
+- Musical timing: durations expressed in beats, synced to BPM from transport
+- Each primitive has a stated perceptual effect (what the listener *feels*, not what the source does)
+- Parameters expose only what the user should control; all creative decisions baked into the algorithm
+- Generated keyframes are directly compatible with existing `setKeyframe()` API
+
+### Key Files
+
+- `src/renderer/audio/Choreography.ts` -- types + `generateKeyframes()` + all primitive implementations
+- `src/renderer/hooks/useChoreography.ts` -- React hook bridging to Zustand stores
+- `docs/CHOREOGRAPHY.md` -- psychoacoustic design document with pairing guide
+- `CHOREOGRAPHY_SPEC.md` -- TypeScript API spec (types only)
+
+### Build Strategy
+
+Two-phase prompt strategy to minimize cloud cost:
+1. **Phase 1 (Cloud Opus):** Design doc, TypeScript API spec, and implementation briefs (~$0.30)
+2. **Phase 2 (Local Qwen3-Coder):** One primitive per session from brief (free local inference)
+3. **Phase 3 (Local):** `useChoreography` hook wiring
+
+---
+
 ## Deferred to v2+
 
 - **AI stem separation** (Demucs/HTDemucs)

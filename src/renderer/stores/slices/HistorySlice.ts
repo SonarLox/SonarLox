@@ -13,7 +13,7 @@ export interface HistorySlice {
 }
 
 function captureSnapshot(label: string, get: () => AppState): HistoryState {
-  const { sources, animations, roomSize } = get()
+  const { sources, animations, roomSize, bpm } = get()
   
   const pluginStore = usePluginStore.getState()
   const pluginState = Array.from(pluginStore.activePlugins.values()).map(instance => ({
@@ -38,7 +38,8 @@ function captureSnapshot(label: string, get: () => AppState): HistoryState {
     sources: clonedSources,
     animations: clonedAnimations,
     pluginState,
-    roomSize: [...roomSize] as [number, number]
+    roomSize: [...roomSize] as [number, number],
+    bpm,
   }
 }
 
@@ -67,6 +68,7 @@ export const createHistorySlice: StateCreator<AppState, [], [], HistorySlice> = 
       sources: prevState.sources,
       animations: prevState.animations,
       roomSize: prevState.roomSize ?? [20, 20],
+      bpm: prevState.bpm ?? 120,
       undoStack: nextUndoStack,
       redoStack: [...redoStack, currentSnapshot],
       isDirty: true
@@ -100,6 +102,7 @@ export const createHistorySlice: StateCreator<AppState, [], [], HistorySlice> = 
       sources: nextState.sources,
       animations: nextState.animations,
       roomSize: nextState.roomSize ?? [20, 20],
+      bpm: nextState.bpm ?? 120,
       undoStack: [...undoStack, currentSnapshot],
       redoStack: nextRedoStack,
       isDirty: true

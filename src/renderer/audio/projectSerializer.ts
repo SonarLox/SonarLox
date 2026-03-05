@@ -32,6 +32,7 @@ export interface SerializedState {
   transport?: {
     volume: number
     loop: boolean
+    bpm?: number
   }
   preferences?: {
     listenerY: number
@@ -82,6 +83,7 @@ export function serializeProjectState(appState: AppState, transportState: Transp
     transport: {
       volume: appState.masterVolume,
       loop: transportState.isLooping,
+      bpm: appState.bpm,
     },
     preferences: {
       listenerY: appState.listenerY,
@@ -120,6 +122,7 @@ export interface DeserializedState {
   listenerY: number
   masterVolume: number
   isLooping: boolean
+  bpm: number
   roomSize: [number, number]
   cameraPresets: ({ position: [number, number, number]; target: [number, number, number] } | null)[]
   selectedOutputDevice: string | null
@@ -157,6 +160,7 @@ export function deserializeProjectState(stateJson: Record<string, unknown>): Des
     listenerY: s.preferences?.listenerY ?? s.listener?.position?.[1] ?? 0,
     masterVolume: s.transport?.volume ?? 1.0,
     isLooping: s.transport?.loop ?? true,
+    bpm: s.transport?.bpm ?? 120,
     roomSize: [s.room?.dimensions?.[0] ?? 20, s.room?.dimensions?.[2] ?? 20],
     cameraPresets: s.camera?.presets ?? [null, null, null, null],
     selectedOutputDevice: s.preferences?.selectedOutputDevice ?? null,

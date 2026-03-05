@@ -116,10 +116,12 @@ export interface AppState {
   isLooping: boolean
   listenerY: number
   roomSize: [number, number] // [width, depth]
+  bpm: number
   setIsPlaying: (isPlaying: boolean) => void
   setIsLooping: (isLooping: boolean) => void
   setListenerY: (y: number) => void
   setRoomSize: (size: [number, number]) => void
+  setBpm: (bpm: number) => void
 
   // Master output
   masterVolume: number
@@ -197,6 +199,7 @@ export interface HistoryState {
   animations: Record<SourceId, SourceAnimation>
   pluginState: import('../plugins/types').SerializedPluginState[]
   roomSize: [number, number]
+  bpm: number
 }
 
 /**

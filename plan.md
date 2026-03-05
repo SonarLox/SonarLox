@@ -74,13 +74,17 @@
 
 ## Planned
 
-### Phase 20: Multi-Camera System
-- Fixed audio camera (current) stays as default workspace view
-- Additional cameras for screen controls, VR views, preview renders
-- Camera switching UI in sidebar
-- Per-camera render targets
+### Phase 20: Spatial Choreography Engine
+- Procedural motion primitives that generate keyframe arrays from psychoacoustic principles
+- 12+ named behaviours covering tension, intimacy, release, disorientation, conversation
+- `ChoreographyBehaviour` union type with per-primitive parameter interfaces
+- Single entry point: `generateKeyframes(behaviour, context) -> GeneratedKeyframes`
+- `useChoreography` hook wiring to AnimationSlice (setKeyframe) and TransportStore (bpm, duration)
+- Two-phase build: Opus designs spec + briefs, Qwen3-Coder implements one primitive per session
+- Files: `src/renderer/audio/Choreography.ts`, `src/renderer/hooks/useChoreography.ts`
+- Design doc: `docs/CHOREOGRAPHY.md`, API spec: `CHOREOGRAPHY_SPEC.md`
 
-### Phase 21: Advanced Plugin UI
+### Phase 21: Advanced Plugin UI (Complete)
 - Plugin panels use Section component for consistent collapsible UI
 - Plugin parameter presets (save/recall)
 - Plugin chain reordering via drag & drop
