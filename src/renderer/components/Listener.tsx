@@ -3,6 +3,13 @@ import { useFrame } from '@react-three/fiber'
 import { Shape, DoubleSide } from 'three'
 import { useAppStore } from '../stores/useAppStore'
 
+/**
+ * Creates a wedge-shaped 2D geometry for visualizing the listener's hearing direction.
+ * The wedge represents a 120-degree field of view around the listener's forward direction.
+ * @param radius - The radius of the wedge arc
+ * @param angleDeg - The angle of the wedge in degrees
+ * @returns A Three.js Shape object representing the wedge
+ */
 function createWedgeShape(radius: number, angleDeg: number): Shape {
   const halfAngle = (angleDeg / 2) * (Math.PI / 180)
   const shape = new Shape()
@@ -18,6 +25,12 @@ function createWedgeShape(radius: number, angleDeg: number): Shape {
   return shape
 }
 
+/**
+ * React component representing the 3D listener in the spatial audio scene.
+ * Visualizes the listener's position, orientation, and hearing direction.
+ * The listener includes a head, ears, nose cone, and a directional wedge on the ground.
+ * The wedge shows the listener's 120-degree hearing field.
+ */
 export function Listener() {
   const groupRef = useRef<import('three').Group>(null)
   const wedgeRef = useRef<import('three').Mesh>(null)
