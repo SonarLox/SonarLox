@@ -9,6 +9,7 @@ import { EnvironmentSection } from './sections/EnvironmentSection'
 import { VideoSection } from './sections/VideoSection'
 import { PluginPanel } from './PluginPanel'
 import { CameraSection } from './sections/CameraSection'
+import { ChoreographySection } from './sections/ChoreographySection'
 
 export function ControlPanel() {
   const selectedSourceId = useAppStore((s) => s.selectedSourceId)
@@ -60,6 +61,12 @@ export function ControlPanel() {
 
       <Section label="Output">
         <OutputSection />
+      </Section>
+
+      <div className="divider" />
+
+      <Section label="Choreography" defaultCollapsed>
+        <ChoreographySection />
       </Section>
 
       <div className="divider" />
