@@ -1,4 +1,9 @@
 export function encodeWav(audioBuffer: AudioBuffer): ArrayBuffer {
+  /**
+   * Encodes an AudioBuffer into a WAV file format ArrayBuffer.
+   * This function converts the audio data from float32 to int16 and structures it according to the WAV specification.
+   * The resulting buffer can be used to save or transmit audio data in WAV format.
+   */
   const numChannels = audioBuffer.numberOfChannels
   const sampleRate = audioBuffer.sampleRate
   const numFrames = audioBuffer.length
@@ -45,6 +50,10 @@ export function encodeWav(audioBuffer: AudioBuffer): ArrayBuffer {
 }
 
 function writeString(view: DataView, offset: number, str: string): void {
+  /**
+   * Writes a string into a DataView at the specified offset, one character at a time.
+   * Used to populate WAV file headers with ASCII identifiers.
+   */
   for (let i = 0; i < str.length; i++) {
     view.setUint8(offset + i, str.charCodeAt(i))
   }
