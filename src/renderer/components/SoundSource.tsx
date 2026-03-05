@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
-import { Vector3, Plane, Raycaster, type Mesh, type MeshStandardMaterial } from 'three'
+import { Vector3, Plane, Raycaster, Color, type Mesh, type MeshStandardMaterial } from 'three'
 import { useAppStore } from '../stores/useAppStore'
 import { audioEngine } from '../audio/WebAudioEngine'
 import type { SourceId } from '../types'
@@ -40,6 +40,9 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
 
   const analyserRef = useRef<AnalyserNode | null>(null)
   const timeDomainRef = useRef<Uint8Array<ArrayBuffer> | null>(null)
+  const baseColorRef = useRef(new Color())
+  const rearColorRef = useRef(new Color())
+  const tempColor = useRef(new Color())
 
   useEffect(() => {
     const analyser = audioEngine.getAnalyser(sourceId)
@@ -209,12 +212,24 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     // Selected state
     const isSelected = useAppStore.getState().selectedSourceId === sourceId
 
+    // Front/back color shift based on azimuth from listener (faces -Z)
+    const azimuthAngle = Math.atan2(mesh.position.x, -mesh.position.z)
+    const absAzimuth = Math.abs(azimuthAngle)
+    const HALF_PI = Math.PI / 2
+
     const analyser = analyserRef.current ?? audioEngine.getAnalyser(sourceId)
     if (!analyser) {
       const s = BASE_SCALE / 0.3
       mesh.scale.setScalar(s)
       const mat = mesh.material as MeshStandardMaterial
       mat.emissiveIntensity = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
+      if (absAzimuth > HALF_PI) {
+        const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
+        tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
+        mat.emissive.copy(tempColor.current)
+      } else {
+        mat.emissive.copy(baseColorRef.current)
+      }
       return
     }
 
@@ -240,12 +255,34 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     const mat = mesh.material as MeshStandardMaterial
     const baseE = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
     mat.emissiveIntensity = baseE + amplitude * (MAX_EMISSIVE - baseE)
+
+    // Apply front/back color shift
+    if (absAzimuth > HALF_PI) {
+      const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
+      tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
+      mat.emissive.copy(tempColor.current)
+    } else {
+      mat.emissive.copy(baseColorRef.current)
+    }
   })
 
   // Get initial values for rendering
   const source = useAppStore((s) => s.sources.find((src) => src.id === sourceId))
   const color = source?.color ?? '#ff6622'
   const position = source?.position ?? [2, 1, 0]
+
+  // Cache base and rear-shifted colors for front/back emissive shift
+  useEffect(() => {
+    baseColorRef.current.set(color)
+    // Desaturated blue-shifted version for rear hemisphere
+    const hsl = { h: 0, s: 0, l: 0 }
+    baseColorRef.current.getHSL(hsl)
+    rearColorRef.current.setHSL(
+      hsl.h * 0.6 + 0.6 * 0.65, // shift hue toward blue (0.65)
+      hsl.s * 0.4,               // desaturate
+      hsl.l * 0.7                // slightly darker
+    )
+  }, [color])
 
   return (
     <mesh

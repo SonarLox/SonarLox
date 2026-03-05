@@ -33,6 +33,7 @@ export function ControlPanel() {
 
   const soundFontName = useAppStore((s) => s.soundFontName)
   const setSoundFontName = useAppStore((s) => s.setSoundFontName)
+  const hasMidiTracks = useAppStore((s) => s.sources.some((src) => src.sourceType === 'midi-track'))
 
   const selectedSourceId = useAppStore((s) => s.selectedSourceId)
   const selectedSource = useAppStore((s) =>
@@ -242,53 +243,57 @@ export function ControlPanel() {
         />
       </div>
 
-      <div className="divider" />
+      {hasMidiTracks && (
+        <>
+          <div className="divider" />
 
-      {/* SoundFont */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <span className="section-label">SoundFont</span>
-        {soundFontName ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{
-              flex: 1,
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-              color: 'var(--text-secondary)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}>
-              {soundFontName}
-            </span>
-            <button
-              className="btn-icon"
-              onClick={handleUnloadSoundFont}
-              disabled={isLoadingSF}
-              title="Unload SoundFont"
-            >
-              x
-            </button>
+          {/* SoundFont -- only visible when MIDI tracks are loaded */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="section-label">SoundFont</span>
+            {soundFontName ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  flex: 1,
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                  color: 'var(--text-secondary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {soundFontName}
+                </span>
+                <button
+                  className="btn-icon"
+                  onClick={handleUnloadSoundFont}
+                  disabled={isLoadingSF}
+                  title="Unload SoundFont"
+                >
+                  x
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn"
+                onClick={handleLoadSoundFont}
+                disabled={isLoadingSF}
+                style={{ fontSize: 11 }}
+              >
+                {isLoadingSF ? 'Loading...' : 'Load SF2'}
+              </button>
+            )}
+            {isLoadingSF && (
+              <span style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 10,
+                color: 'var(--text-muted)',
+              }}>
+                Rendering MIDI tracks...
+              </span>
+            )}
           </div>
-        ) : (
-          <button
-            className="btn"
-            onClick={handleLoadSoundFont}
-            disabled={isLoadingSF}
-            style={{ fontSize: 11 }}
-          >
-            {isLoadingSF ? 'Loading...' : 'Load SF2'}
-          </button>
-        )}
-        {isLoadingSF && (
-          <span style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: 10,
-            color: 'var(--text-muted)',
-          }}>
-            Rendering MIDI tracks...
-          </span>
-        )}
-      </div>
+        </>
+      )}
 
       <div className="divider" />
 
