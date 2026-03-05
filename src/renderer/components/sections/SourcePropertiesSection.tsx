@@ -1,11 +1,9 @@
 import { useAppStore } from '../../stores/useAppStore'
-import { useTransportStore } from '../../stores/useTransportStore'
 import { audioEngine } from '../../audio/WebAudioEngine'
-import { useToast } from '../Toast'
+import { useToast } from '../ToastContext'
 
 export function SourcePropertiesSection() {
   const { showToast } = useToast()
-  const isPlaying = useTransportStore((s) => s.isPlaying)
   const selectedSourceId = useAppStore((s) => s.selectedSourceId)
   const selectedSource = useAppStore((s) => s.sources.find((src) => src.id === s.selectedSourceId))
   const setSourceVolume = useAppStore((s) => s.setSourceVolume)
@@ -16,7 +14,6 @@ export function SourcePropertiesSection() {
 
   const isFileSource = selectedSource.sourceType === 'file'
   const isToneSource = selectedSource.sourceType === 'tone'
-  const isMidiSource = selectedSource.sourceType === 'midi-track'
   const isSineActive = isToneSource && (selectedSource.audioFileName?.startsWith('Sine') ?? false)
 
   const handleLoadAudio = async () => {

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useAppStore } from '../../stores/useAppStore'
 import { useTransportStore } from '../../stores/useTransportStore'
 import { audioEngine } from '../../audio/WebAudioEngine'
-import { useToast } from '../Toast'
+import { useToast } from '../ToastContext'
 import { buildVideoUrl } from '../../video/videoElementRef'
 
 const FRAME_RATES = [23.976, 24, 25, 29.97, 30, 60]

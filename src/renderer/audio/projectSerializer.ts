@@ -1,4 +1,4 @@
-import type { AppState, AudioSource, ProjectManifest, SourcePosition, SourceId, SourceAnimation, EasingType } from '../types'
+import type { AppState, AudioSource, ProjectManifest, SourceId, SourceAnimation } from '../types'
 import type { TransportState } from '../types'
 import type { SerializedPluginState, PluginInstance } from '../plugins/types'
 

@@ -11,12 +11,7 @@ import {
   type Mesh,
 } from 'three'
 import { useAppStore } from '../stores/useAppStore'
-
-const THROTTLE_MS = 64
-
-function clamp(v: number, min: number, max: number): number {
-  return v < min ? min : v > max ? max : v
-}
+import { clamp, THROTTLE_MS } from '../utils/math'
 
 interface VideoScreenProps {
   videoElement: HTMLVideoElement | null

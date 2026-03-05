@@ -11,12 +11,10 @@ import type { SourceId, EasingType } from '../types'
 const MIN_HEIGHT = 120
 const DEFAULT_HEIGHT = 180
 const MAX_HEIGHT = 400
-const HEADER_WIDTH = 140
 const ROW_HEIGHT = 36
 const LANE_HEIGHT = 28
 const RULER_HEIGHT = 22
 const PLAYHEAD_COLOR = '#e84057'
-const PLAYHEAD_GLOW = 'rgba(232, 64, 87, 0.35)'
 
 /* ------------------------------------------------------------------ */
 /*  Time ruler tick helpers                                            */

@@ -3,7 +3,7 @@ import { useAppStore } from '../stores/useAppStore'
 import { useTransportStore } from '../stores/useTransportStore'
 import { audioEngine } from '../audio/WebAudioEngine'
 import { deleteTrack } from '../audio/midiTrackCache'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/ToastContext'
 
 export function useKeyboardShortcuts(saveProject: (saveAs?: boolean) => void, openProject: () => void) {
   const { showToast } = useToast()

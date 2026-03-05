@@ -1,8 +1,9 @@
 import { useFrame } from '@react-three/fiber'
 import { usePluginStore } from '../plugins/usePluginStore'
 import { useAppStore } from '../stores/useAppStore'
+import type { AudioSource } from '../types'
 import { audioEngine } from '../audio/WebAudioEngine'
-import { VisualizerPlugin } from '../plugins/types'
+import { VisualizerPlugin, PluginInstance } from '../plugins/types'
 import { PluginErrorBoundary } from './PluginErrorBoundary'
 
 export function PluginVisualizers() {
@@ -26,7 +27,7 @@ export function PluginVisualizers() {
   )
 }
 
-function VisualizerLayer({ instance, sources }: { instance: any; sources: any[] }) {
+function VisualizerLayer({ instance, sources }: { instance: PluginInstance; sources: AudioSource[] }) {
   const plugin = instance.plugin as VisualizerPlugin
 
   useFrame(() => {

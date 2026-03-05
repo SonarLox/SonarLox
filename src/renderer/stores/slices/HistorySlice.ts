@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand'
-import { AppState, HistoryState } from '../../types'
+import { AppState, HistoryState, SourceId, SourceAnimation } from '../../types'
 import { usePluginStore } from '../../plugins/usePluginStore'
 import { rebuildAllEffectChains } from '../../plugins/effectChain'
 
@@ -24,7 +24,7 @@ function captureSnapshot(label: string, get: () => AppState): HistoryState {
   }))
 
   const clonedSources = sources.map(s => ({ ...s, position: [...s.position] as [number, number, number] }))
-  const clonedAnimations: Record<string, any> = {}
+  const clonedAnimations: Record<SourceId, SourceAnimation> = {}
   for (const [id, anim] of Object.entries(animations)) {
     clonedAnimations[id] = {
       sourceId: id,

@@ -8,7 +8,7 @@ export interface PluginParameterDef {
   id: string
   label: string
   type: 'float' | 'int' | 'boolean' | 'select' | 'file'
-  defaultValue: any
+  defaultValue: PluginParameterValue
   min?: number
   max?: number
   step?: number
@@ -62,8 +62,8 @@ export interface VisualizerPlugin extends SonarLoxPlugin {
 }
 
 export interface VisualizerData {
-  geometry: any
-  material: any
+  geometry: import('three').BufferGeometry
+  material: import('three').Material
 }
 
 /** Exporter plugin -- renders project to a custom file format */

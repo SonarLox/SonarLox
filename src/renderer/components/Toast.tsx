@@ -1,22 +1,6 @@
-import { createContext, useContext, useCallback, useState, useRef, useEffect } from 'react'
-
-type ToastType = 'error' | 'success' | 'info'
-
-interface Toast {
-  id: number
-  message: string
-  type: ToastType
-}
-
-interface ToastContextValue {
-  showToast: (message: string, type?: ToastType) => void
-}
-
-const ToastContext = createContext<ToastContextValue>({ showToast: () => {} })
-
-export function useToast() {
-  return useContext(ToastContext)
-}
+import { useCallback, useState, useRef, useEffect } from 'react'
+import { ToastContext } from './ToastContext'
+import type { Toast, ToastType } from './ToastContext'
 
 const MAX_TOASTS = 3
 const AUTO_DISMISS_MS = 4000

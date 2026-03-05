@@ -4,7 +4,7 @@ import { audioEngine } from '../../audio/WebAudioEngine'
 import { loadSoundFont, unloadSoundFont, renderMidiTrackWithSoundFont } from '../../audio/SoundFontPlayer'
 import { renderMidiTrack } from '../../audio/MidiSynth'
 import { getTrack } from '../../audio/midiTrackCache'
-import { useToast } from '../Toast'
+import { useToast } from '../ToastContext'
 
 export function OutputSection() {
   const { showToast } = useToast()

@@ -8,7 +8,7 @@ import { setTrack, deleteTrack } from '../audio/midiTrackCache'
 import { MAX_SOURCES } from '../types'
 import type { SourceType } from '../types'
 import { useTransportStore } from '../stores/useTransportStore'
-import { useToast } from './Toast'
+import { useToast } from './ToastContext'
 
 /**
  * Component that displays and manages audio sources in the spatial audio editor.

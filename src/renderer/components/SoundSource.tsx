@@ -6,6 +6,7 @@ import { useTransportStore } from '../stores/useTransportStore'
 import { audioEngine } from '../audio/WebAudioEngine'
 import { getAnimatedPosition } from '../audio/AnimationEngine'
 import type { SourceId } from '../types'
+import { clamp, THROTTLE_MS } from '../utils/math'
 
 /**
  * Base scale factor for sound source spheres
@@ -31,28 +32,6 @@ const MAX_EMISSIVE = 1.0
  * Additional emissive boost when a sound source is selected
  */
 const SELECTED_EMISSIVE_BOOST = 0.4
-
-/**
- * Throttle interval for position updates to avoid excessive store writes
- */
-const THROTTLE_MS = 64
-
-/**
- * Minimum bounds for sound source positions in 3D space
- */
-const MIN_BOUNDS: [number, number, number] = [-10, 0, -10]
-
-/**
- * Maximum bounds for sound source positions in 3D space
- */
-const MAX_BOUNDS: [number, number, number] = [10, 10, 10]
-
-/**
- * Clamps a value between a minimum and maximum
- */
-function clamp(v: number, min: number, max: number): number {
-  return v < min ? min : v > max ? max : v
-}
 
 /**
  * Props for the SoundSource component

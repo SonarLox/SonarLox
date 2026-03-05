@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useCallback } from 'react'
 import { useAppStore } from '../stores/useAppStore'
 import { usePluginStore } from '../plugins/usePluginStore'
 import { PluginInstance, PluginParameterDef, PluginParameterValue } from '../plugins/types'

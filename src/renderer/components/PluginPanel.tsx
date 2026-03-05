@@ -3,8 +3,9 @@ import { useAppStore } from '../stores/useAppStore'
 import { usePluginStore } from '../plugins/usePluginStore'
 import { loadPlugin, unloadPlugin } from '../plugins/pluginLoader'
 import { rebuildEffectChain, rebuildAllEffectChains } from '../plugins/effectChain'
-import { useToast } from './Toast'
+import { useToast } from './ToastContext'
 import type { PluginManifest, PluginParameterDef, PluginParameterValue } from '../plugins/types'
+import type { SourceId } from '../types'
 
 const TYPE_LABELS: Record<string, string> = {
   'audio-effect': 'FX',
@@ -97,11 +98,11 @@ export function PluginPanel() {
     if (!instance) return
 
     const oldTarget = instance.target
-    store.setPluginTarget(pluginId, target as any)
+    store.setPluginTarget(pluginId, target as SourceId | 'master')
 
     if (instance.manifest.type === 'audio-effect') {
       rebuildEffectChain(oldTarget)
-      rebuildEffectChain(target as any)
+      rebuildEffectChain(target as SourceId | 'master')
     }
   }, [])
 

@@ -2,7 +2,8 @@ import { useCallback, useEffect } from 'react'
 import { Viewport } from './components/Viewport'
 import { ControlPanel } from './components/ControlPanel'
 import { TimelinePanel } from './components/TimelinePanel'
-import { ToastProvider, useToast } from './components/Toast'
+import { ToastProvider } from './components/Toast'
+import { useToast } from './components/ToastContext'
 import { useAppStore } from './stores/useAppStore'
 import { audioEngine } from './audio/WebAudioEngine'
 import { useProjectIO } from './hooks/useProjectIO'
@@ -68,7 +69,7 @@ export default function App() {
             setSourceAudioFileName(newSource.id, file.name)
             showToast(`Added MIDI: ${file.name}`, 'success')
           }
-        } catch (err) {
+        } catch {
           showToast(`Failed to load ${file.name}`, 'error')
         }
       }

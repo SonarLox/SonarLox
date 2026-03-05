@@ -258,66 +258,6 @@ function schedule51GainAutomation(
 }
 
 /**
- * Exports a 5.1 WAV file for a single audio source with spatial positioning.
- * Uses VBAP panning and supports keyframe animation for speaker gains.
- */
-export async function export51WavSingle(
-  audioBuffer: AudioBuffer,
-  position: [number, number, number],
-  volume: number,
-  listenerY = 0,
-  sourceId?: SourceId,
-  animations?: Record<SourceId, SourceAnimation>,
-): Promise<ArrayBuffer> {
-  const sampleRate = 44100
-  const length = Math.ceil(audioBuffer.duration * sampleRate)
-  const offlineCtx = new OfflineAudioContext(6, length, sampleRate)
-
-  const adjustedPosition: [number, number, number] = [
-    position[0],
-    position[1] - listenerY,
-    position[2],
-  ]
-
-  const gains = compute51Gains(adjustedPosition)
-  const merger = offlineCtx.createChannelMerger(6)
-  const gainNodes: GainNode[] = []
-
-  for (let ch = 0; ch < 6; ch++) {
-    const source = offlineCtx.createBufferSource()
-    source.buffer = audioBuffer
-
-    const gainNode = offlineCtx.createGain()
-    gainNode.gain.value = volume * gains[ch]
-    gainNodes.push(gainNode)
-
-    // LFE channel: apply 120Hz lowpass
-    if (ch === 3) {
-      const lpf = offlineCtx.createBiquadFilter()
-      lpf.type = 'lowpass'
-      lpf.frequency.value = 120
-      source.connect(gainNode)
-      gainNode.connect(lpf)
-      lpf.connect(merger, 0, ch)
-    } else {
-      source.connect(gainNode)
-      gainNode.connect(merger, 0, ch)
-    }
-
-    source.start()
-  }
-
-  if (sourceId && animations) {
-    schedule51GainAutomation(gainNodes, sourceId, animations, position, volume, listenerY, audioBuffer.duration)
-  }
-
-  merger.connect(offlineCtx.destination)
-
-  const rendered = await offlineCtx.startRendering()
-  return encodeWav(rendered)
-}
-
-/**
  * Exports a mixed 5.1 WAV file from multiple audio sources.
  * Combines multiple sources with individual spatial positions and animations.
  */

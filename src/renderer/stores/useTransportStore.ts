@@ -23,7 +23,7 @@ export interface TransportState {
 
 let playheadInterval: number | null = null
 
-function startPlayheadLoop(set: any, get: any) {
+function startPlayheadLoop(set: (partial: Partial<TransportState>) => void, get: () => TransportState) {
   if (playheadInterval) return
   playheadInterval = window.setInterval(() => {
     const pos = audioEngine.getPlayheadPosition()

@@ -1,9 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '../stores/useAppStore'
 import { audioEngine } from '../audio/WebAudioEngine'
 import type { ExportSource } from '../audio/Exporter'
 import {
-  exportBinauralWav,
   exportMixedBinauralWav,
   export51Wav,
 } from '../audio/Exporter'
@@ -20,7 +19,6 @@ type ExportMode = 'binaural-stems' | 'binaural-mix' | '5.1-surround' | string
 export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
   const [mode, setMode] = useState<ExportMode>('binaural-mix')
   const [isExporting, setIsExporting] = useState(false)
-  const [progress, setExportProgress] = useState(0)
   const projectTitle = useAppStore((s) => s.projectTitle)
   const exporterPlugins = usePluginStore((s) => s.getExporterPlugins())
 
@@ -29,7 +27,6 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
   const handleExport = async () => {
     if (!window.api) return
     setIsExporting(true)
-    setExportProgress(0)
 
     try {
       let buffer: ArrayBuffer | null = null
