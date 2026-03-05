@@ -1,87 +1,87 @@
 # SonarLox Development Plan
 
-## Completed Phases
+## Completed
 
-### Phase 1-6: Core Foundation
-- Single/multi-source spatial audio with HRTF binaural panning
-- 3D scene with React Three Fiber, visual feedback, distance rings
-- Basic WAV export, UI polish
+### Phase 1-6: Core Foundation (v0.x)
+- Electron + electron-vite scaffold, React Three Fiber 3D scene
+- Single-source spatial audio with HRTF PannerNode
+- Visual feedback (distance rings, FFT, front/back cue)
+- Basic WAV export, initial UI
 
-### Phase 7-9: Audio Engine Refactor
-- WebAudioEngine singleton + SourceChannel architecture
-- Solo/mute logic, transport store, timeline with waveform scrubbing
-- Audio output device selection
+### Phase 7-9: Multi-Source Audio
+- IAudioEngine interface, WebAudioEngine singleton + SourceChannel
+- Multi-source Zustand store, source list with mute/solo
+- Transport store with sample-accurate sync, timeline with waveform scrubbing
+- Audio output device selection via setSinkId
 
 ### Phase 10-11: MIDI & SoundFont
-- MIDI file import via @tonejs/midi, oscillator synth rendering
-- SoundFont (SF2) support via js-synthesizer/FluidSynth WASM
+- MIDI import via @tonejs/midi, oscillator synth with GM program mapping
+- SoundFont (SF2) via js-synthesizer/FluidSynth WASM, re-render on load/unload
 
 ### Phase 12: Export System
-- Export dialog with format options (binaural stereo, 5.1 surround, stems)
-- Progress tracking, cancel support, solo/listenerY in offline render
+- ExportDialog with binaural stereo, 5.1 surround (VBAP), and stem exports
+- Solo/mute respected in offline render, progress tracking, cancel support
 
 ### Project Save/Load
-- .sonarlox ZIP format with embedded WAV
+- .sonarlox ZIP format (state.json + timeline.json + embedded WAV)
 - Ctrl+S/O/Shift+S shortcuts, dirty tracking, 3-button save dialogs
 
 ### Phase 13: Visual Enhancements
-- Listener directional wedge, front/back color shift
-- Distance rings with ground projection, FFT visualizer
+- Listener directional wedge, front/back color shift on source spheres
+- Distance rings with ground projection, per-source FFT visualizer
 
-### Phase 14: UX Polish
-- Toast notification system (console-styled with LED + type badge + drain bar)
-- Tooltips, window constraints, native confirmation dialogs, CSS theme
+### Phase 14: UX Polish (v1.0)
+- Console-styled toast notification system (LED + type badge + drain bar)
+- Tooltips, window constraints (800x500), native confirmation dialogs
+- CSS theme with Oxanium/Outfit/Share Tech Mono fonts
+- v1.0.0 tagged and released
 
 ### Phase 15: Animation System
 - Keyframed position automation with Catmull-Rom spline interpolation
-- Automation lanes in timeline, recording mode (R key)
-- Motion path preview, export with animated positions
+- Automation lanes in timeline, keyframe dragging, motion path preview
+- Recording mode (R key) with configurable quantize
+- Export bakes position automation at 20ms intervals
 - Project serialization v1.1.0
 
 ### Phase 16: Plugin System
-- Plugin scanner, editor, panel with ON/OFF + target routing
+- Plugin scanner, loader, editor panel with ON/OFF + target routing
 - Audio effects (per-source or master chain), visualizers, exporters
 - Error boundary, effect chain rebuild, project persistence
-- Plugin directory: ~/.sonarlox/plugins/
+- Included: Simple Reverb, Spectrum Visualizer, Bitcrusher
 
 ### Phase 17: Undo/Redo & Refinements
 - Undo/redo with selective state snapshots (Ctrl+Z/Y)
 - Drag & drop audio/MIDI files into 3D room
-- Dynamic room size, modular Zustand store slices
-- Refined UI sections
+- Dynamic room size (10m-50m), modular Zustand store slices
+- Refined UI sections (Session, Output, Environment)
 
-### Phase 18: Video Synchronization
-- Docked video panel with broadcast monitor aesthetic
-- Transport sync (play/pause/seek locks video to audio timeline)
-- SMPTE timecode display, frame-step controls
-- Video offset (TC offset slider)
+### Phase 18: Video Synchronization (v1.1)
+- Docked video panel with broadcast-monitor aesthetic (scanlines, crop marks, vignette)
+- Transport sync via useVideoSync hook (play/pause/seek/frame-step)
+- SMPTE timecode display (HH:MM:SS:FF), configurable frame rate
+- TC offset slider, video visibility toggle, opacity control
 - 3D video screen in scene (fixed orientation, draggable, lockable, scalable)
-- Extract audio from video
-- CRT scanlines, crop marks, vignette overlays
-- `buildVideoUrl` helper, `refreshDuration` transport action
+- Extract audio track from video as new source
+- buildVideoUrl helper, refreshDuration transport action
 
-### Phase 19: Control Panel Redesign (Current)
-- Collapsible `Section` component with chevron toggle + accessory slot
-- Sections grouped by workflow priority:
-  - Always open: Session, Sources, Transport, Output
-  - Collapsed by default: Environment, Video Sync, Plugins, Camera
+### Phase 19: Control Panel Redesign
+- Reusable collapsible Section component (chevron toggle, label, accessory, defaultCollapsed)
+- Workflow-priority grouping: core sections open, secondary collapsed
 - Source properties merged inline under Sources section
-- Tighter spacing (gap: 2px between sections, 300px sidebar)
-- Reusable pattern for future plugin/feature panels
-- `sectionReveal` animation on expand
+- Tighter spacing (300px sidebar, 2px section gap, sectionReveal animation)
 
 ---
 
-## Planned / Future
+## Planned
 
 ### Phase 20: Multi-Camera System
-- Fixed audio camera (current) stays as default
-- Additional cameras for screen controls, VR views, etc.
-- Camera switching UI
-- Per-camera render targets for future VR/preview modes
+- Fixed audio camera (current) stays as default workspace view
+- Additional cameras for screen controls, VR views, preview renders
+- Camera switching UI in sidebar
+- Per-camera render targets
 
 ### Phase 21: Advanced Plugin UI
-- Plugin panels use `Section` component for consistent collapsible UI
+- Plugin panels use Section component for consistent collapsible UI
 - Plugin parameter presets (save/recall)
 - Plugin chain reordering via drag & drop
 - Custom plugin visualizer panels docked in sidebar
@@ -89,12 +89,12 @@
 ### Phase 22: Collaboration & Sharing
 - Export project as shareable package
 - Import/merge projects
-- Session notes / markers on timeline
+- Session notes and markers on timeline
 
 ### Phase 23: Advanced Export
-- Real-time binaural preview recording
+- Video export with embedded spatial audio (ffmpeg mux)
 - Ambisonic export (AmbiX B-format)
-- Video export with embedded spatial audio
+- Real-time binaural preview recording
 - Batch export presets
 
 ### Phase 24: Performance & Scale
@@ -103,7 +103,11 @@
 - Virtual scrolling for large source lists
 - GPU-accelerated waveform rendering
 
-### Ongoing
-- Bug fixes and UX refinements
-- Plugin ecosystem growth
-- Documentation and tutorials
+### v3.0: Spatial Media Player
+- MKV/multi-container playback with FFmpeg-based demuxer
+- Multi-channel to 3D source mapping (7.1.4 channels as positioned sources)
+- Per-channel "Speaker Dome" visualizer with energy heatmap timeline
+- Atmos bed channel support (7.1.4 decode)
+- Channel solo in 3D (click speaker orb to solo)
+- Network sync, head tracking, collaborative editing
+- Web player export (static HTML+JS bundle)
