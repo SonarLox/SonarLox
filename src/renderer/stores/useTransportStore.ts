@@ -18,6 +18,7 @@ export interface TransportState {
   seek: (pos: number) => void
   toggleLoop: () => void
   updatePlayhead: (pos: number) => void
+  refreshDuration: () => void
 }
 
 let playheadInterval: number | null = null
@@ -90,5 +91,9 @@ export const useTransportStore = create<TransportState>((set, get) => ({
     if (!get().isLooping && pos >= duration && duration > 0) {
       get().stop()
     }
+  },
+
+  refreshDuration: () => {
+    set({ duration: audioEngine.getDuration() })
   },
 }))

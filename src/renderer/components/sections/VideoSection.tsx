@@ -3,6 +3,7 @@ import { useAppStore } from '../../stores/useAppStore'
 import { useTransportStore } from '../../stores/useTransportStore'
 import { audioEngine } from '../../audio/WebAudioEngine'
 import { useToast } from '../Toast'
+import { buildVideoUrl } from '../../video/videoElementRef'
 
 const FRAME_RATES = [23.976, 24, 25, 29.97, 30, 60]
 
@@ -10,8 +11,10 @@ function getVideoDuration(url: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const el = document.createElement('video')
     el.preload = 'metadata'
-    el.onloadedmetadata = () => { resolve(el.duration); el.src = '' }
-    el.onerror = () => reject(new Error('Failed to load video metadata'))
+    const cleanup = () => { el.onloadedmetadata = null; el.onerror = null; el.src = '' }
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Timeout loading video metadata')) }, 10000)
+    el.onloadedmetadata = () => { clearTimeout(timer); const d = el.duration; cleanup(); resolve(d) }
+    el.onerror = () => { clearTimeout(timer); cleanup(); reject(new Error('Failed to load video metadata')) }
     el.src = url
   })
 }
@@ -47,7 +50,7 @@ export function VideoSection() {
 
     // Create a silent source matching the video duration for timeline length
     await audioEngine.init()
-    const videoUrl = `sonarlox-video://video?path=${encodeURIComponent(result.filePath)}`
+    const videoUrl = buildVideoUrl(result.filePath)
     try {
       const duration = await getVideoDuration(videoUrl)
       if (duration > 0) {
@@ -63,7 +66,7 @@ export function VideoSection() {
         audioEngine.setAudioBuffer(newest.id, silent)
         setSourceAudioFileName(newest.id, `${result.name} (ref)`)
         setSourceLabel(newest.id, 'Video Ref')
-        useTransportStore.setState({ duration })
+        useTransportStore.getState().refreshDuration()
         showToast(`Video loaded: ${duration.toFixed(1)}s`, 'success')
       }
     } catch { /* duration detection failed, user can still add sources manually */ }
@@ -72,7 +75,7 @@ export function VideoSection() {
   const handleExtractAudio = async () => {
     const filePath = useAppStore.getState().videoFilePath
     if (!filePath || extracting) return
-    const videoUrl = `sonarlox-video://video?path=${encodeURIComponent(filePath)}`
+    const videoUrl = buildVideoUrl(filePath)
     setExtracting(true)
     try {
       await audioEngine.init()
@@ -86,7 +89,7 @@ export function VideoSection() {
       await audioEngine.loadFile(newest.id, buf)
       setSourceAudioFileName(newest.id, `${useAppStore.getState().videoFileName} (audio)`)
       setSourceLabel(newest.id, 'Video Audio')
-      useTransportStore.setState({ duration: audioEngine.getDuration() })
+      useTransportStore.getState().refreshDuration()
       showToast('Audio extracted from video', 'success')
     } catch {
       showToast('No audio track found in video', 'error')

@@ -3,7 +3,7 @@ import { useAppStore } from '../stores/useAppStore'
 import { useTransportStore } from '../stores/useTransportStore'
 import { useVideoSync } from '../hooks/useVideoSync'
 import { secondsToTimecode } from '../utils/timecode'
-import { setVideoElement } from '../video/videoElementRef'
+import { setVideoElement, buildVideoUrl } from '../video/videoElementRef'
 
 export function VideoPanel() {
   const videoFilePath = useAppStore((s) => s.videoFilePath)
@@ -27,7 +27,10 @@ export function VideoPanel() {
     return () => setVideoElement(null)
   }, [videoFilePath])
 
-  const videoTime = useTransportStore((s) => Math.max(0, s.playheadPosition - videoOffset))
+  const videoTime = useTransportStore((s) => {
+    const t = Math.max(0, s.playheadPosition - videoOffset)
+    return Math.floor(t * videoFrameRate) / videoFrameRate
+  })
   const isPlaying = useTransportStore((s) => s.isPlaying)
 
   const frameDuration = 1 / videoFrameRate
@@ -43,7 +46,7 @@ export function VideoPanel() {
 
   if (!videoFilePath || !isVideoVisible) return null
 
-  const videoSrc = `sonarlox-video://video?path=${encodeURIComponent(videoFilePath)}`
+  const videoSrc = buildVideoUrl(videoFilePath)
 
   // Split timecode into segments for styled rendering
   const tc = secondsToTimecode(videoTime, videoFrameRate)

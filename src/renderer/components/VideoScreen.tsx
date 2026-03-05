@@ -59,15 +59,7 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
     }
   }, [videoTexture])
 
-  const getScreenState = useCallback(() => {
-    const s = useAppStore.getState()
-    return {
-      position: s.videoScreenPosition,
-      locked: s.videoScreenLocked,
-      scale: s.videoScreenScale,
-      opacity: s.videoOpacity,
-    }
-  }, [])
+  const getScreenState = useCallback(() => useAppStore.getState(), [])
 
   const commitPosition = useCallback(
     (x: number, y: number, z: number, force: boolean) => {
@@ -87,8 +79,8 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
       target: EventTarget
       ray: Raycaster['ray']
     }) => {
-      const { locked } = getScreenState()
-      if (locked) return
+      const s = getScreenState()
+      if (s.videoScreenLocked) return
 
       event.stopPropagation()
       isDragging.current = true
@@ -96,8 +88,7 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
       const el = event.target as HTMLElement
       if (el.setPointerCapture) el.setPointerCapture(event.pointerId)
 
-      const { position } = getScreenState()
-      const pos = new Vector3(...position)
+      const pos = new Vector3(...s.videoScreenPosition)
 
       // Drag on a camera-facing vertical plane through the screen center
       const normal = new Vector3()
@@ -159,15 +150,14 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
 
       if (controls) controls.enabled = true
 
-      const { position } = getScreenState()
-      commitPosition(...position, true)
+      const s = getScreenState()
+      commitPosition(...s.videoScreenPosition, true)
     },
     [controls, commitPosition, getScreenState]
   )
 
   const visible = useAppStore((s) => s.videoScreenVisible)
   const hasVideo = useAppStore((s) => s.videoFilePath !== null)
-  const locked = useAppStore((s) => s.videoScreenLocked)
 
   const shouldRender = hasVideo && visible && videoTexture !== null
 
@@ -176,10 +166,10 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
     const mesh = meshRef.current
     if (!mesh) return
 
-    const { position, scale, opacity } = getScreenState()
+    const s = useAppStore.getState()
 
     if (!isDragging.current) {
-      mesh.position.set(...position)
+      mesh.position.set(...s.videoScreenPosition)
     }
 
     // Billboard: face camera horizontally
@@ -189,24 +179,22 @@ export function VideoScreen({ videoElement }: VideoScreenProps) {
     mesh.rotation.y = Math.atan2(dx, dz)
 
     // Update scale (16:9 aspect)
-    mesh.scale.set(scale, scale * (9 / 16), 1)
+    const sc = s.videoScreenScale
+    mesh.scale.set(sc, sc * (9 / 16), 1)
 
     // Update opacity
+    const opacity = s.videoOpacity
     const mat = mesh.material as import('three').MeshBasicMaterial
     if (mat.opacity !== opacity) {
       mat.opacity = opacity
       mat.transparent = opacity < 1
-    }
-
-    // Only update texture when video has frames
-    if (videoTexture && videoElement && videoElement.readyState >= 2) {
-      videoTexture.needsUpdate = true
     }
   })
 
   if (!shouldRender) return null
 
   const position = useAppStore.getState().videoScreenPosition
+  const locked = useAppStore.getState().videoScreenLocked
 
   return (
     <mesh

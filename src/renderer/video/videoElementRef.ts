@@ -7,3 +7,7 @@ export function setVideoElement(el: HTMLVideoElement | null): void {
 export function getVideoElement(): HTMLVideoElement | null {
   return videoElement
 }
+
+export function buildVideoUrl(filePath: string): string {
+  return `sonarlox-video://video?path=${encodeURIComponent(filePath)}`
+}

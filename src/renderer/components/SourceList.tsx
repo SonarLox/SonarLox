@@ -70,7 +70,7 @@ export function SourceList() {
         if (result) {
           await audioEngine.loadFile(newest.id, result.buffer)
           useAppStore.getState().setSourceAudioFileName(newest.id, result.name)
-          useTransportStore.setState({ duration: audioEngine.getDuration() })
+          useTransportStore.getState().refreshDuration()
         }
       } catch {
         showToast('Failed to load audio file', 'error')
