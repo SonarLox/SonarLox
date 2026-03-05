@@ -32,7 +32,9 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app — load
 - Listener Y position syncs to Web Audio AudioListener via AudioBridge
 - AnalyserNode provides waveform data for visual feedback
 - TimelinePanel shows per-source waveforms with shared playhead, click-to-scrub
-- Keyboard shortcuts (App.tsx): Space=play/pause, 1-8=select source, Delete=remove source
+- Keyboard shortcuts (App.tsx): Space=play/pause, 1-8=select source, Delete=remove source (with confirmation dialog)
+- Toast notifications (Toast.tsx): context-based, console-styled status strips with LED + drain bar
+- Confirmation dialogs: native OS dialogs via show-confirm-dialog IPC for destructive actions
 
 ## Performance Pattern: Zustand Transient Updates
 - Components that read position in useFrame use `useAppStore.getState()` (no subscription, no re-render)

@@ -116,6 +116,26 @@ ipcMain.handle('project:save-dialog', async () => {
   return result.filePath
 })
 
+ipcMain.handle('show-confirm-dialog', async (_event, options: {
+  message: string
+  detail?: string
+  buttons?: string[]
+  defaultId?: number
+  cancelId?: number
+}) => {
+  const { BrowserWindow } = await import('electron')
+  const win = BrowserWindow.getFocusedWindow()
+  const result = await dialog.showMessageBox(win!, {
+    type: 'question',
+    message: options.message,
+    detail: options.detail,
+    buttons: options.buttons ?? ['OK', 'Cancel'],
+    defaultId: options.defaultId ?? 0,
+    cancelId: options.cancelId ?? 1,
+  })
+  return result.response
+})
+
 ipcMain.handle('open-soundfont-file', async () => {
   const result = await dialog.showOpenDialog({
     filters: [{ name: 'SoundFont', extensions: ['sf2'] }],

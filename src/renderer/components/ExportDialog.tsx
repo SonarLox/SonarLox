@@ -8,6 +8,7 @@ import {
   export51WavSingle,
 } from '../audio/Exporter'
 import type { ExportSource } from '../audio/Exporter'
+import { useToast } from './Toast'
 
 type ExportType = 'mix' | 'stems'
 type RenderMode = 'binaural' | '5.1' | 'both'
@@ -18,6 +19,7 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
+  const { showToast } = useToast()
   const [exportType, setExportType] = useState<ExportType>('mix')
   const [renderMode, setRenderMode] = useState<RenderMode>('binaural')
   const [isCancelling, setIsCancelling] = useState(false)
@@ -89,8 +91,8 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
       } else {
         await exportStems(filteredSources, listenerY, setExportProgress)
       }
-    } catch (err) {
-      console.error('Export failed:', err)
+    } catch {
+      showToast('Export failed', 'error')
     } finally {
       setIsExporting(false)
       setExportProgress(0)

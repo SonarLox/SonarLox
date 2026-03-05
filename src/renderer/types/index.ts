@@ -152,6 +152,13 @@ export interface ElectronAPI {
   saveProject: (data: ProjectSaveData) => Promise<{ saved: boolean; path: string }>
   openProject: () => Promise<ProjectOpenResult | null>
   saveProjectDialog: () => Promise<string | null>
+  showConfirmDialog: (options: {
+    message: string
+    detail?: string
+    buttons?: string[]
+    defaultId?: number
+    cancelId?: number
+  }) => Promise<number>
 }
 
 declare global {

@@ -57,9 +57,16 @@ export function useProjectIO() {
     if (!window.api) return
 
     const appState = useAppStore.getState()
-    if (appState.isDirty) {
-      const confirmed = window.confirm('You have unsaved changes. Open a different project?')
-      if (!confirmed) return
+    if (appState.isDirty && window.api.showConfirmDialog) {
+      const response = await window.api.showConfirmDialog({
+        message: 'You have unsaved changes.',
+        detail: 'Save before opening a different project?',
+        buttons: ['Save', 'Discard', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+      })
+      if (response === 2) return // Cancel
+      if (response === 0) await saveProject() // Save first
     }
 
     const result = await window.api.openProject()
@@ -122,13 +129,20 @@ export function useProjectIO() {
     audioEngine.setLooping(deserialized.isLooping)
     audioEngine.setMasterVolume(deserialized.masterVolume)
     audioEngine.setListenerY(deserialized.listenerY)
-  }, [])
+  }, [saveProject])
 
-  const newProject = useCallback(() => {
+  const newProject = useCallback(async () => {
     const appState = useAppStore.getState()
-    if (appState.isDirty) {
-      const confirmed = window.confirm('You have unsaved changes. Create a new project?')
-      if (!confirmed) return
+    if (appState.isDirty && window.api?.showConfirmDialog) {
+      const response = await window.api.showConfirmDialog({
+        message: 'You have unsaved changes.',
+        detail: 'Save before creating a new project?',
+        buttons: ['Save', 'Discard', 'Cancel'],
+        defaultId: 0,
+        cancelId: 2,
+      })
+      if (response === 2) return // Cancel
+      if (response === 0) await saveProject() // Save first
     }
 
     // Stop playback
@@ -168,7 +182,7 @@ export function useProjectIO() {
     audioEngine.setLooping(true)
     audioEngine.setMasterVolume(1.0)
     audioEngine.setListenerY(0)
-  }, [])
+  }, [saveProject])
 
   return { saveProject, openProject, newProject }
 }

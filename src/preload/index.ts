@@ -20,6 +20,13 @@ if (process.contextIsolated) {
       audioFiles: Array<{ name: string; wavBuffer: ArrayBuffer; meta: string }>
     }) => ipcRenderer.invoke('project:save', data),
     openProject: () => ipcRenderer.invoke('project:open'),
-    saveProjectDialog: () => ipcRenderer.invoke('project:save-dialog') as Promise<string | null>
+    saveProjectDialog: () => ipcRenderer.invoke('project:save-dialog') as Promise<string | null>,
+    showConfirmDialog: (options: {
+      message: string
+      detail?: string
+      buttons?: string[]
+      defaultId?: number
+      cancelId?: number
+    }) => ipcRenderer.invoke('show-confirm-dialog', options) as Promise<number>
   })
 }

@@ -7,6 +7,8 @@ function createWindow(): void {
   const mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    minWidth: 800,
+    minHeight: 500,
     title: 'SonarLox',
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {

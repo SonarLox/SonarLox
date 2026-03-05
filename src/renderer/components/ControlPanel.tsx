@@ -12,8 +12,10 @@ import { getTrack } from '../audio/midiTrackCache'
 import { SourceList } from './SourceList'
 import { ExportDialog } from './ExportDialog'
 import { useProjectIO } from '../hooks/useProjectIO'
+import { useToast } from './Toast'
 
 export function ControlPanel() {
+  const { showToast } = useToast()
   const { saveProject, openProject, newProject } = useProjectIO()
   const projectTitle = useAppStore((s) => s.projectTitle)
   const isDirty = useAppStore((s) => s.isDirty)
@@ -80,8 +82,8 @@ export function ControlPanel() {
     if (deviceId) {
       try {
         await audioEngine.setOutputDevice(deviceId)
-      } catch (err) {
-        console.error('Failed to set output device:', err)
+      } catch {
+        showToast('Failed to set output device', 'error')
       }
     }
   }
@@ -110,8 +112,8 @@ export function ControlPanel() {
       await loadSoundFont(result.buffer, result.name ?? 'soundfont.sf2')
       setSoundFontName(result.name ?? 'soundfont.sf2')
       await reRenderMidiTracks(true)
-    } catch (err) {
-      console.error('Failed to load SoundFont:', err)
+    } catch {
+      showToast('Failed to load SoundFont', 'error')
     } finally {
       setIsLoadingSF(false)
     }
@@ -131,16 +133,13 @@ export function ControlPanel() {
   const handleLoadAudio = async () => {
     if (!selectedSourceId) return
     try {
-      if (!window.api) {
-        console.error('window.api is not defined')
-        return
-      }
+      if (!window.api) return
       const result = await window.api.openAudioFile()
       if (!result) return
       await audioEngine.loadFile(selectedSourceId, result.buffer)
       setSourceAudioFileName(selectedSourceId, result.name ?? 'audio file')
-    } catch (err) {
-      console.error('Failed to load audio:', err)
+    } catch {
+      showToast('Failed to load audio file', 'error')
     }
   }
 
@@ -234,9 +233,9 @@ export function ControlPanel() {
           </div>
         )}
         <div className="project-actions">
-          <button className="btn" onClick={newProject}>New</button>
-          <button className="btn" onClick={() => openProject()}>Open</button>
-          <button className="btn btn--accent" onClick={() => saveProject()}>Save</button>
+          <button className="btn" onClick={newProject} title="New project (Ctrl+N)">New</button>
+          <button className="btn" onClick={() => openProject()} title="Open project (Ctrl+O)">Open</button>
+          <button className="btn btn--accent" onClick={() => saveProject()} title="Save project (Ctrl+S)">Save</button>
         </div>
         <div className="project-hints">
           <span><span className="project-hint-key">Ctrl+S</span> save</span>
@@ -320,6 +319,7 @@ export function ControlPanel() {
                 onClick={handleLoadSoundFont}
                 disabled={isLoadingSF}
                 style={{ fontSize: 11 }}
+                title="Load a SoundFont (.sf2) for MIDI rendering"
               >
                 {isLoadingSF ? 'Loading...' : 'Load SF2'}
               </button>
@@ -374,7 +374,7 @@ export function ControlPanel() {
             {/* File source: Load Audio */}
             {isFileSource && (
               <>
-                <button className="btn" onClick={handleLoadAudio} style={{ flex: 1 }}>
+                <button className="btn" onClick={handleLoadAudio} style={{ flex: 1 }} title="Load an audio file (MP3, WAV)">
                   Load Audio
                 </button>
                 {selectedSource.audioFileName && (
@@ -407,10 +407,10 @@ export function ControlPanel() {
             {isToneSource && (
               <>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button className="btn" onClick={() => handleTestTone('sine')} style={{ flex: 1 }}>
+                  <button className="btn" onClick={() => handleTestTone('sine')} style={{ flex: 1 }} title="Generate sine wave tone">
                     Sine
                   </button>
-                  <button className="btn" onClick={() => handleTestTone('pink-noise')} style={{ flex: 1 }}>
+                  <button className="btn" onClick={() => handleTestTone('pink-noise')} style={{ flex: 1 }} title="Generate pink noise">
                     Pink Noise
                   </button>
                 </div>
@@ -484,6 +484,7 @@ export function ControlPanel() {
             className={`btn btn--transport ${isPlaying ? '' : 'btn--accent'}`}
             onClick={handlePlay}
             disabled={!hasAnyAudio || isPlaying}
+            title="Play (Space)"
           >
             Play
           </button>
@@ -491,6 +492,7 @@ export function ControlPanel() {
             className="btn btn--transport"
             onClick={handlePause}
             disabled={!isPlaying}
+            title="Pause (Space)"
           >
             Pause
           </button>
@@ -498,6 +500,7 @@ export function ControlPanel() {
             className="btn btn--transport btn--danger-subtle"
             onClick={handleStop}
             disabled={!isPlaying && !isPaused}
+            title="Stop"
           >
             Stop
           </button>
@@ -506,6 +509,7 @@ export function ControlPanel() {
           className={`btn ${isLooping ? 'btn--active' : ''}`}
           onClick={toggleLoop}
           style={{ fontSize: 11 }}
+          title="Toggle loop playback"
         >
           {isLooping ? 'Loop ON' : 'Loop OFF'}
         </button>
@@ -537,6 +541,7 @@ export function ControlPanel() {
           onClick={() => setShowExportDialog(true)}
           disabled={!hasAnyAudio || isExporting}
           style={{ flex: 'none' }}
+          title="Export audio to file"
         >
           {isExporting ? 'Exporting...' : 'Export...'}
         </button>
@@ -552,7 +557,7 @@ export function ControlPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span className="section-label">Camera</span>
         <div style={{ display: 'flex', gap: 5 }}>
-          <button className="btn" onClick={() => setCameraCommand({ type: 'home' })} style={{ flex: 1 }}>
+          <button className="btn" onClick={() => setCameraCommand({ type: 'home' })} style={{ flex: 1 }} title="Reset camera to home position">
             Home
           </button>
           {[0, 1, 2, 3].map((i) => (
@@ -567,6 +572,7 @@ export function ControlPanel() {
                 }
               }}
               style={{ minWidth: 34, flex: 'none', textAlign: 'center' }}
+              title={cameraPresets[i] ? `Recall preset ${i + 1} (Shift+click to save)` : `Shift+click to save preset ${i + 1}`}
             >
               {i + 1}
             </button>

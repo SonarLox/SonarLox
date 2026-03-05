@@ -7,8 +7,10 @@ import { isLoaded as isSoundFontLoaded, renderMidiTrackWithSoundFont } from '../
 import { setTrack, deleteTrack } from '../audio/midiTrackCache'
 import { MAX_SOURCES } from '../types'
 import type { SourceType } from '../types'
+import { useToast } from './Toast'
 
 export function SourceList() {
+  const { showToast } = useToast()
   const sources = useAppStore((s) => s.sources)
   const selectedSourceId = useAppStore((s) => s.selectedSourceId)
   const selectSource = useAppStore((s) => s.selectSource)
@@ -97,8 +99,8 @@ export function SourceList() {
         audioEngine.setAudioBuffer(newest.id, buffer)
         useAppStore.getState().setSourceAudioFileName(newest.id, track.name)
       }
-    } catch (err) {
-      console.error('Failed to load MIDI:', err)
+    } catch {
+      showToast('Failed to load MIDI file', 'error')
     } finally {
       setMidiProgress(null)
     }
@@ -305,6 +307,7 @@ export function SourceList() {
           className="btn"
           onClick={() => handleAdd('file')}
           disabled={atMax || !!midiProgress}
+          title="Add audio file source"
           style={{
             flex: 1,
             fontSize: 11,
@@ -320,6 +323,7 @@ export function SourceList() {
           className="btn"
           onClick={() => handleAdd('tone')}
           disabled={atMax || !!midiProgress}
+          title="Add tone generator source"
           style={{
             flex: 1,
             fontSize: 11,
@@ -335,6 +339,7 @@ export function SourceList() {
           className="btn"
           onClick={handleLoadMidi}
           disabled={atMax || !!midiProgress}
+          title="Import MIDI file"
           style={{
             flex: 1,
             fontSize: 11,

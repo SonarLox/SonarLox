@@ -2,10 +2,12 @@ import { useEffect } from 'react'
 import { Viewport } from './components/Viewport'
 import { ControlPanel } from './components/ControlPanel'
 import { TimelinePanel } from './components/TimelinePanel'
+import { ToastProvider } from './components/Toast'
 import { useAppStore } from './stores/useAppStore'
 import { useTransportStore } from './stores/useTransportStore'
 import { audioEngine } from './audio/WebAudioEngine'
 import { useProjectIO } from './hooks/useProjectIO'
+import { deleteTrack } from './audio/midiTrackCache'
 
 export default function App() {
   const { saveProject, openProject } = useProjectIO()
@@ -61,8 +63,27 @@ export default function App() {
       if ((e.code === 'Delete' || e.code === 'Backspace') && selectedSourceId) {
         e.preventDefault()
         if (sources.length > 1) {
-          audioEngine.removeChannel(selectedSourceId)
-          removeSource(selectedSourceId)
+          const source = sources.find((s) => s.id === selectedSourceId)
+          const name = source?.label ?? 'this source'
+          if (window.api?.showConfirmDialog) {
+            window.api.showConfirmDialog({
+              message: `Remove "${name}"?`,
+              detail: 'This will remove the source and its audio from the session.',
+              buttons: ['Remove', 'Cancel'],
+              defaultId: 0,
+              cancelId: 1,
+            }).then((response) => {
+              if (response === 0) {
+                audioEngine.removeChannel(selectedSourceId)
+                deleteTrack(selectedSourceId)
+                removeSource(selectedSourceId)
+              }
+            })
+          } else {
+            audioEngine.removeChannel(selectedSourceId)
+            deleteTrack(selectedSourceId)
+            removeSource(selectedSourceId)
+          }
         }
         return
       }
@@ -73,28 +94,30 @@ export default function App() {
   }, [saveProject, openProject])
 
   return (
-    <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
-      {/* Left: Viewport + Timeline stacked */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ flex: 1, background: '#08090d', minHeight: 0 }}>
-          <Viewport />
+    <ToastProvider>
+      <div style={{ display: 'flex', width: '100vw', height: '100vh' }}>
+        {/* Left: Viewport + Timeline stacked */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ flex: 1, background: '#08090d', minHeight: 0 }}>
+            <Viewport />
+          </div>
+          <TimelinePanel />
         </div>
-        <TimelinePanel />
-      </div>
 
-      {/* Right: Control Panel sidebar */}
-      <div
-        className="panel"
-        style={{
-          width: 320,
-          padding: '16px 14px',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          flexShrink: 0,
-        }}
-      >
-        <ControlPanel />
+        {/* Right: Control Panel sidebar */}
+        <div
+          className="panel"
+          style={{
+            width: 320,
+            padding: '16px 14px',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            flexShrink: 0,
+          }}
+        >
+          <ControlPanel />
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   )
 }

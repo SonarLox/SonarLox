@@ -207,11 +207,12 @@ The timeline panel sits below the 3D viewport, with the control panel remaining 
 └─────────────────────────────────┴──────────────┘
 ```
 
-### Future (v2)
+### Future (Phase 15)
 
-- Keyframeable source positions over time
-- Position curves visualized on the timeline
-- Per-source automation lanes (volume, etc.)
+- Keyframeable source positions over time (see Phase 15 spec below)
+- Position curves visualized on timeline automation lanes
+- Recording mode: drag source during playback to auto-create keyframes
+- Per-source automation lanes (volume, etc. — v2+)
 
 ---
 
@@ -672,16 +673,298 @@ interface TransportState {
 - LOCAL: Device dropdown filters by channel capability
 - Verify: drag source around room, hear it move across 5.1 speakers correctly
 
-### Phase 14: UI/Design Polish (Est. 1-2 sessions) — LOCAL
+### Phase 14: UI/Design Polish (COMPLETE)
 - CSS variables for theme (colors, spacing, typography)
 - Consistent component styling (buttons, sliders, dropdowns)
 - Hover/active/disabled states
 - Layout refinement (viewport/timeline/panel proportions)
 - Device selector dropdown
 - Keyboard shortcuts (1-8 select source, Delete remove, Space play/pause)
+- Toast notification system (console-styled status strips with LED, drain bar)
+- Tooltips on all interactive elements with shortcut hints
+- Window min size constraints (800x500)
+- Confirmation dialogs via native OS dialogs (delete source, unsaved changes)
 - Error handling (invalid files, unsupported formats, audio context resume)
 - App icon and window title
-- Verify: app feels cohesive and polished, no rough edges
+
+### Phase 15: Keyframed Position Animation (Est. 3-4 sessions) — CLOUD + LOCAL
+
+Animate source positions over time. During playback and export, sources move along authored paths instead of staying static.
+
+#### Data Model
+
+```typescript
+interface Keyframe {
+  time: number              // seconds from start
+  position: SourcePosition  // [x, y, z]
+  easing: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out'
+}
+
+interface SourceAnimation {
+  sourceId: SourceId
+  keyframes: Keyframe[]     // sorted by time, minimum 0 (initial position)
+}
+
+// Added to AppState
+interface AppState {
+  animations: Map<SourceId, SourceAnimation>
+  isRecordingKeyframes: boolean
+  setKeyframe: (sourceId: SourceId, time: number, position: SourcePosition) => void
+  removeKeyframe: (sourceId: SourceId, time: number) => void
+  clearAnimation: (sourceId: SourceId) => void
+}
+```
+
+#### Interpolation Engine
+
+New file: `src/renderer/audio/AnimationEngine.ts`
+
+- `getAnimatedPosition(sourceId, time)` — returns interpolated [x, y, z] for a given time
+- Uses cubic hermite or catmull-rom spline for smooth curves between keyframes
+- Falls back to source's static position when no keyframes exist
+- Called by AudioBridge in useFrame during playback (replaces static getState() position read)
+- Called by Exporter at render-time sample intervals for export
+
+#### Timeline UI Additions
+
+Updates to `TimelinePanel.tsx`:
+
+- Each source row gains an expandable "automation lane" below the waveform
+- Lane shows keyframe diamonds on a horizontal axis matching the timeline scale
+- Click on the lane to add a keyframe at that time (captures current source position)
+- Drag keyframes left/right to retime, up/down does nothing (position set by 3D drag)
+- Right-click keyframe for context menu: delete, change easing
+- Selected keyframe shows position readout and easing selector in ControlPanel
+- Color-coded path preview: thin line on the 3D ground plane showing the motion path
+
+#### Recording Mode
+
+- "Record" toggle button in transport section (red dot indicator)
+- When enabled + playing, any source drag auto-creates keyframes at the current playhead time
+- Quantize option: snap keyframes to nearest 0.1s or 0.25s to avoid micro-jitter
+- When disabled, drags update position normally (no keyframes created)
+
+#### Playback Integration
+
+- AudioBridge.tsx: during playback, if source has keyframes, read interpolated position instead of store position
+- Mesh position in SoundSource.tsx also follows animated position during playback
+- When stopped/paused and user drags source, static position updates as before
+- Scrubbing the playhead updates source positions to their interpolated values at that time
+
+#### Export Integration
+
+- CLOUD: Design the export strategy for animated positions with OfflineAudioContext
+- OfflineAudioContext does not have real-time frame callbacks, so position animation must be pre-baked
+- Strategy: chunk the render into small time slices (~50ms), update PannerNode positions between slices
+  - Alternative: use AudioParam scheduling on PannerNode.positionX/Y/Z with setValueAtTime() for each keyframe
+  - AudioParam approach is more accurate and avoids chunking overhead
+- `Exporter.ts` reads keyframes and schedules PannerNode.positionX/Y/Z.setValueAtTime() for each interpolated point
+- Interpolation resolution: one position update per 20ms (50 updates/sec) for smooth export
+- 5.1 export: pre-compute VBAP gains at each time slice, schedule gain changes per channel
+
+#### Project File (.sonarlox)
+
+- `timeline.json` (currently a placeholder `{ version, tracks: [] }`) gains real content:
+  ```json
+  {
+    "version": "1.1.0",
+    "animations": {
+      "source-uuid-1": {
+        "keyframes": [
+          { "time": 0, "position": [2, 1, 0], "easing": "linear" },
+          { "time": 5.0, "position": [-3, 1, -2], "easing": "ease-in-out" },
+          { "time": 10.0, "position": [0, 1, -4], "easing": "linear" }
+        ]
+      }
+    }
+  }
+  ```
+- Backward compatible: loading a v1.0 file with empty tracks array still works (no animations)
+
+#### Implementation Order
+
+1. **CLOUD**: Design interpolation engine + export AudioParam scheduling strategy
+2. **LOCAL**: Keyframe data model in store + AnimationEngine.ts
+3. **LOCAL**: AudioBridge integration (read animated positions during playback)
+4. **LOCAL**: Timeline automation lanes (keyframe diamonds, add/remove/drag)
+5. **LOCAL**: Recording mode (auto-keyframe on drag during playback)
+6. **LOCAL**: 3D motion path preview (ground-plane polyline)
+7. **CLOUD**: Export integration (AudioParam scheduling on OfflineAudioContext)
+8. **LOCAL**: Project serialization (timeline.json with keyframe data)
+
+#### Verification
+
+- Add 2 keyframes to a source, play, confirm source sphere moves between positions in 3D
+- Confirm audio panning follows the animated position (sound moves in headphones)
+- Scrub playhead to a keyframe time, confirm source is at correct position
+- Export binaural mix with animated source, play in external player, hear movement
+- Save project, reopen, confirm keyframes restored and animation plays back correctly
+- Record mode: play + drag source, stop, replay, confirm motion replays
+
+### Phase 16: Plugin System (Est. 3-4 sessions) — CLOUD + LOCAL
+
+Extensible plugin architecture allowing third-party audio processors, visualizers, and exporters.
+
+#### Plugin Types
+
+| Type | Description | Interface |
+|---|---|---|
+| `audio-effect` | Per-source or master insert effect (reverb, delay, EQ, compressor) | Receives AudioNode input, returns AudioNode output |
+| `visualizer` | Custom 3D visualization (particle systems, waveform meshes, etc.) | Receives analyser data + source positions, renders into R3F scene |
+| `exporter` | Custom export format (Ambisonic B-format, Atmos ADM BWF, FLAC, etc.) | Receives source buffers + positions, produces output file(s) |
+| `source-generator` | Custom audio source (granular synth, ambient noise, AI-generated) | Produces AudioBuffer or streams AudioNode output |
+
+#### Plugin Manifest
+
+Each plugin is a directory with a `plugin.json` manifest:
+
+```json
+{
+  "id": "com.example.reverb",
+  "name": "Convolution Reverb",
+  "version": "1.0.0",
+  "type": "audio-effect",
+  "author": "Example Author",
+  "description": "Impulse response convolution reverb with wet/dry mix",
+  "main": "index.js",
+  "ui": "panel.tsx",
+  "permissions": ["audio-graph", "file-read"],
+  "parameters": [
+    { "id": "wet", "type": "float", "min": 0, "max": 1, "default": 0.3, "label": "Wet Mix" },
+    { "id": "ir", "type": "file", "extensions": ["wav"], "label": "Impulse Response" }
+  ]
+}
+```
+
+#### Plugin API
+
+```typescript
+// Core plugin interface — all plugins implement this
+interface SonarLoxPlugin {
+  id: string
+  activate(context: PluginContext): void | Promise<void>
+  deactivate(): void
+}
+
+// Context provided to plugins at activation
+interface PluginContext {
+  audioContext: AudioContext
+  getSourcePositions: () => Map<SourceId, SourcePosition>
+  getPlayheadTime: () => number
+  getParameter: (id: string) => number | string | boolean
+  onParameterChange: (id: string, callback: (value: unknown) => void) => void
+  log: (message: string) => void
+}
+
+// Audio effect plugins
+interface AudioEffectPlugin extends SonarLoxPlugin {
+  type: 'audio-effect'
+  createNode(context: AudioContext): AudioNode  // insert into chain
+  connectInput(input: AudioNode): void
+  getOutput(): AudioNode
+}
+
+// Visualizer plugins
+interface VisualizerPlugin extends SonarLoxPlugin {
+  type: 'visualizer'
+  render(props: {
+    sources: Array<{ id: string; position: SourcePosition; analyserData: Float32Array }>
+    listenerPosition: SourcePosition
+    delta: number
+  }): React.ReactNode  // R3F JSX
+}
+
+// Exporter plugins
+interface ExporterPlugin extends SonarLoxPlugin {
+  type: 'exporter'
+  export(sources: ExportSource[], options: Record<string, unknown>): Promise<ArrayBuffer>
+  fileExtension: string
+  formatName: string
+}
+```
+
+#### Plugin Loading
+
+- Plugins directory: `~/.sonarlox/plugins/` (or `%APPDATA%/sonarlox/plugins/` on Windows)
+- On app start, scan plugin directories, validate manifests, register available plugins
+- Plugins run in a sandboxed iframe or web worker for isolation (audio effects need main thread AudioContext access, so iframe with MessageChannel)
+- Plugin manager in main process handles installation/removal via IPC
+- No hot-reload in v1 -- restart required after installing/removing plugins
+
+#### Plugin UI
+
+- New "Plugins" section in ControlPanel (below Export, above Camera)
+- Lists active plugins with enable/disable toggle per plugin
+- Audio effects show insert slot UI: dropdown per source to add effect in chain
+- Plugin parameters rendered as sliders/dropdowns based on manifest `parameters` array
+- Plugin settings panel opens as a slide-out overlay (similar to ExportDialog)
+
+#### Plugin Store / Installation
+
+- v1: Manual installation only (copy plugin directory to plugins folder)
+- v2: Built-in plugin browser fetching from a curated registry (GitHub-based)
+- Plugin directory structure:
+  ```
+  ~/.sonarlox/plugins/
+  ├── com.example.reverb/
+  │   ├── plugin.json
+  │   ├── index.js
+  │   └── panel.tsx
+  └── com.example.spectrum/
+      ├── plugin.json
+      └── index.js
+  ```
+
+#### Audio Effect Chain Integration
+
+When audio effects are active, the per-source audio graph becomes:
+
+```
+Source → GainNode → [Effect1] → [Effect2] → PannerNode(HRTF) → masterGain → destination
+```
+
+- Effects insert between GainNode and PannerNode (pre-spatial processing)
+- Master effects (post-spatial) insert between masterGain and destination
+- Effect order is user-configurable via drag-and-drop in the effect chain UI
+- Bypass toggle per effect (reconnects input directly to output)
+
+#### Project Serialization
+
+- Active plugins and their parameter states saved in `state.json` within .sonarlox files:
+  ```json
+  {
+    "plugins": {
+      "com.example.reverb": {
+        "enabled": true,
+        "target": "source-uuid-1",
+        "slot": 0,
+        "parameters": { "wet": 0.4, "ir": "hall.wav" }
+      }
+    }
+  }
+  ```
+- On project open, warn if required plugin is not installed
+
+#### Implementation Order
+
+1. **CLOUD**: Design plugin API interfaces, sandbox strategy, security model
+2. **LOCAL**: Plugin manifest parser + directory scanner
+3. **LOCAL**: Plugin manager (load/unload lifecycle, parameter system)
+4. **CLOUD**: Audio effect chain integration (insert nodes between gain and panner)
+5. **LOCAL**: Plugin UI in ControlPanel (list, enable/disable, parameter controls)
+6. **LOCAL**: Visualizer plugin rendering hook (inject into R3F scene)
+7. **LOCAL**: Exporter plugin integration (add to ExportDialog format list)
+8. **LOCAL**: Example plugins: simple reverb (ConvolverNode), spectrum visualizer
+9. **LOCAL**: Project serialization for plugin state
+
+#### Verification
+
+- Install example reverb plugin, enable on a source, hear reverb applied before spatialization
+- Disable plugin, reverb stops, audio chain intact
+- Install visualizer plugin, see custom visualization in 3D viewport
+- Export with effect plugin active, confirm effect is baked into exported WAV
+- Save project with plugin parameters, reopen, plugin restores state
+- Remove plugin directory, reopen project, graceful warning (not crash)
 
 ---
 
@@ -709,12 +992,12 @@ interface TransportState {
 
 ## What's Deferred to v2+
 
-- **Keyframed position animation** on the timeline (positions are static in v1 export)
 - **AI stem separation** (Demucs/HTDemucs — user provides their own stems in v1)
-- **Room acoustics** (configurable room dimensions, materials, convolution reverb)
+- **Room acoustics** (configurable room dimensions, materials, convolution reverb — could be a Phase 16 plugin)
 - **Video sync** (import video, attach spatialized audio)
 - **Multi-output routing** (different sources to different physical speakers simultaneously)
 - **Speaker calibration** (see SPEAKER_CALIBRATION_SPEC.md)
-- **Dolby Atmos / 7.1.4 export** (object-based audio with height channels, ADM BWF metadata)
+- **Dolby Atmos / 7.1.4 export** (object-based audio with height channels, ADM BWF metadata — could be a Phase 16 exporter plugin)
 - **Head tracking** (webcam/gyroscope listener orientation)
 - **Native audio backend** (PortAudio — see AUDIO_ENGINE_SPEC.md)
+- **Plugin registry/store** (curated online registry with install-from-browser)
