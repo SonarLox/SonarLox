@@ -40,6 +40,14 @@ export default function App() {
       const { sources, selectSource, removeSource, selectedSourceId } = useAppStore.getState()
       const transport = useTransportStore.getState()
 
+      // R: toggle keyframe recording
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault()
+        const { isRecordingKeyframes, setIsRecordingKeyframes } = useAppStore.getState()
+        setIsRecordingKeyframes(!isRecordingKeyframes)
+        return
+      }
+
       // Space: toggle play/pause
       if (e.code === 'Space') {
         e.preventDefault()
