@@ -14,6 +14,11 @@ import { ExportDialog } from './ExportDialog'
 import { useProjectIO } from '../hooks/useProjectIO'
 import { useToast } from './Toast'
 
+/**
+ * Control panel component for the SonarLox spatial audio editor.
+ * Provides UI controls for project management, audio playback, source configuration,
+ * and spatial audio settings including listener height and camera presets.
+ */
 export function ControlPanel() {
   const { showToast } = useToast()
   const { saveProject, openProject, newProject } = useProjectIO()
@@ -53,6 +58,11 @@ export function ControlPanel() {
   const setSourceAudioFileName = useAppStore((s) => s.setSourceAudioFileName)
   const setSourceSineFrequency = useAppStore((s) => s.setSourceSineFrequency)
 
+  const isRecordingKeyframes = useAppStore((s) => s.isRecordingKeyframes)
+  const setIsRecordingKeyframes = useAppStore((s) => s.setIsRecordingKeyframes)
+  const recordQuantize = useAppStore((s) => s.recordQuantize)
+  const setRecordQuantize = useAppStore((s) => s.setRecordQuantize)
+
   const isExporting = useAppStore((s) => s.isExporting)
   const [showExportDialog, setShowExportDialog] = useState(false)
   const [outputDevices, setOutputDevices] = useState<MediaDeviceInfo[]>([])
@@ -76,6 +86,10 @@ export function ControlPanel() {
     }
   }, [])
 
+  /**
+   * Handles changing the audio output device.
+   * Updates the selected device in the store and attempts to set it in the audio engine.
+   */
   const handleDeviceChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const deviceId = e.target.value
     setSelectedOutputDevice(deviceId || null)
@@ -90,6 +104,10 @@ export function ControlPanel() {
 
   const [isLoadingSF, setIsLoadingSF] = useState(false)
 
+  /**
+   * Re-renders all MIDI tracks with or without SoundFont rendering.
+   * Used when loading/unloading SoundFont to update the audio buffers.
+   */
   const reRenderMidiTracks = async (useSoundFont: boolean) => {
     const sources = useAppStore.getState().sources
     const midiSources = sources.filter((s) => s.sourceType === 'midi-track')
@@ -103,6 +121,10 @@ export function ControlPanel() {
     }
   }
 
+  /**
+   * Loads a SoundFont file for MIDI rendering.
+   * Updates the store with the loaded SoundFont name and re-renders MIDI tracks.
+   */
   const handleLoadSoundFont = async () => {
     if (!window.api) return
     try {
@@ -119,6 +141,10 @@ export function ControlPanel() {
     }
   }
 
+  /**
+   * Unloads the currently loaded SoundFont.
+   * Re-renders MIDI tracks without SoundFont to fallback to default synthesis.
+   */
   const handleUnloadSoundFont = async () => {
     unloadSoundFont()
     setSoundFontName(null)
@@ -130,6 +156,10 @@ export function ControlPanel() {
     }
   }
 
+  /**
+   * Loads an audio file for the selected source.
+   * Updates the source's audio file name and loads the file into the audio engine.
+   */
   const handleLoadAudio = async () => {
     if (!selectedSourceId) return
     try {
@@ -143,10 +173,25 @@ export function ControlPanel() {
     }
   }
 
+  /**
+   * Starts playback of the audio session.
+   */
   const handlePlay = () => { play() }
+
+  /**
+   * Pauses playback of the audio session.
+   */
   const handlePause = () => { pause() }
+
+  /**
+   * Stops playback of the audio session.
+   */
   const handleStop = () => { stop() }
 
+  /**
+   * Generates a test tone (sine or pink noise) for the selected source.
+   * Updates the source's audio file name and plays the tone through the audio engine.
+   */
   const handleTestTone = async (type: 'sine' | 'pink-noise') => {
     if (!selectedSourceId) return
     await audioEngine.playTestTone(selectedSourceId, type)
@@ -158,9 +203,22 @@ export function ControlPanel() {
     )
   }
 
+  /**
+   * Converts slider value to frequency (used for sine wave frequency control).
+   * Implements exponential scaling for perceptual frequency control.
+   */
   const freqFromSlider = (v: number) => 20 * Math.pow(200, v)
+
+  /**
+   * Converts frequency to slider value (used for sine wave frequency control).
+   * Implements inverse exponential scaling for perceptual frequency control.
+   */
   const sliderFromFreq = (f: number) => Math.log(f / 20) / Math.log(200)
 
+  /**
+   * Handles changes to the sine wave frequency slider.
+   * Updates the source's frequency and audio engine.
+   */
   const handleFrequencyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedSourceId) return
     const freq = Math.round(freqFromSlider(parseFloat(e.target.value)))
@@ -171,12 +229,20 @@ export function ControlPanel() {
     }
   }
 
+  /**
+   * Handles changes to the source volume slider.
+   * Updates the source's volume in the store.
+   */
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedSourceId) return
     const v = parseFloat(e.target.value)
     setSourceVolume(selectedSourceId, v)
   }
 
+  /**
+   * Handles changes to the master volume slider.
+   * Updates the master volume in the store.
+   */
   const handleMasterVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value)
     setMasterVolume(v)
@@ -505,14 +571,48 @@ export function ControlPanel() {
             Stop
           </button>
         </div>
-        <button
-          className={`btn ${isLooping ? 'btn--active' : ''}`}
-          onClick={toggleLoop}
-          style={{ fontSize: 11 }}
-          title="Toggle loop playback"
-        >
-          {isLooping ? 'Loop ON' : 'Loop OFF'}
-        </button>
+        <div style={{ display: 'flex', gap: 5 }}>
+          <button
+            className={`btn ${isLooping ? 'btn--active' : ''}`}
+            onClick={toggleLoop}
+            style={{ fontSize: 11, flex: 1 }}
+            title="Toggle loop playback"
+          >
+            {isLooping ? 'Loop ON' : 'Loop OFF'}
+          </button>
+          <button
+            className={`btn ${isRecordingKeyframes ? 'btn--record-active' : ''}`}
+            onClick={() => setIsRecordingKeyframes(!isRecordingKeyframes)}
+            style={{ fontSize: 11, flex: 1 }}
+            title="Toggle keyframe recording (R)"
+          >
+            {isRecordingKeyframes ? 'Rec ON' : 'Rec'}
+          </button>
+        </div>
+        {isRecordingKeyframes && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Quantize</span>
+            <select
+              value={recordQuantize}
+              onChange={(e) => setRecordQuantize(parseFloat(e.target.value))}
+              style={{
+                background: 'var(--bg-elevated)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 4,
+                padding: '2px 4px',
+                fontSize: 10,
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              <option value={0}>Off</option>
+              <option value={0.05}>50ms</option>
+              <option value={0.1}>100ms</option>
+              <option value={0.25}>250ms</option>
+              <option value={0.5}>500ms</option>
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Listener Height */}
