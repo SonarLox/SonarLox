@@ -690,120 +690,26 @@ interface TransportState {
 ### Phase 15: Keyframed Position Animation (COMPLETE)
 
 Animate source positions over time. During playback and export, sources move along authored paths instead of staying static.
-
-#### Data Model
-
-```typescript
-interface Keyframe {
-  time: number              // seconds from start
-  position: SourcePosition  // [x, y, z]
-  easing: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out'
-}
-
-interface SourceAnimation {
-  sourceId: SourceId
-  keyframes: Keyframe[]     // sorted by time, minimum 0 (initial position)
-}
-
-// Added to AppState
-interface AppState {
-  animations: Map<SourceId, SourceAnimation>
-  isRecordingKeyframes: boolean
-  setKeyframe: (sourceId: SourceId, time: number, position: SourcePosition) => void
-  removeKeyframe: (sourceId: SourceId, time: number) => void
-  clearAnimation: (sourceId: SourceId) => void
-}
-```
-
-#### Interpolation Engine
-
-New file: `src/renderer/audio/AnimationEngine.ts`
-
-- `getAnimatedPosition(sourceId, time)` — returns interpolated [x, y, z] for a given time
-- Uses cubic hermite or catmull-rom spline for smooth curves between keyframes
-- Falls back to source's static position when no keyframes exist
-- Called by AudioBridge in useFrame during playback (replaces static getState() position read)
-- Called by Exporter at render-time sample intervals for export
-
-#### Timeline UI Additions
-
-Updates to `TimelinePanel.tsx`:
-
-- Each source row gains an expandable "automation lane" below the waveform
-- Lane shows keyframe diamonds on a horizontal axis matching the timeline scale
-- Click on the lane to add a keyframe at that time (captures current source position)
-- Drag keyframes left/right to retime, up/down does nothing (position set by 3D drag)
-- Right-click keyframe for context menu: delete, change easing
-- Selected keyframe shows position readout and easing selector in ControlPanel
-- Color-coded path preview: thin line on the 3D ground plane showing the motion path
-
-#### Recording Mode
-
-- "Record" toggle button in transport section (red dot indicator)
-- When enabled + playing, any source drag auto-creates keyframes at the current playhead time
-- Quantize option: snap keyframes to nearest 0.1s or 0.25s to avoid micro-jitter
-- When disabled, drags update position normally (no keyframes created)
-
-#### Playback Integration
-
-- AudioBridge.tsx: during playback, if source has keyframes, read interpolated position instead of store position
-- Mesh position in SoundSource.tsx also follows animated position during playback
-- When stopped/paused and user drags source, static position updates as before
-- Scrubbing the playhead updates source positions to their interpolated values at that time
-
-#### Export Integration
-
-- CLOUD: Design the export strategy for animated positions with OfflineAudioContext
-- OfflineAudioContext does not have real-time frame callbacks, so position animation must be pre-baked
-- Strategy: chunk the render into small time slices (~50ms), update PannerNode positions between slices
-  - Alternative: use AudioParam scheduling on PannerNode.positionX/Y/Z with setValueAtTime() for each keyframe
-  - AudioParam approach is more accurate and avoids chunking overhead
-- `Exporter.ts` reads keyframes and schedules PannerNode.positionX/Y/Z.setValueAtTime() for each interpolated point
-- Interpolation resolution: one position update per 20ms (50 updates/sec) for smooth export
-- 5.1 export: pre-compute VBAP gains at each time slice, schedule gain changes per channel
-
-#### Project File (.sonarlox)
-
-- `timeline.json` (currently a placeholder `{ version, tracks: [] }`) gains real content:
-  ```json
-  {
-    "version": "1.1.0",
-    "animations": {
-      "source-uuid-1": {
-        "keyframes": [
-          { "time": 0, "position": [2, 1, 0], "easing": "linear" },
-          { "time": 5.0, "position": [-3, 1, -2], "easing": "ease-in-out" },
-          { "time": 10.0, "position": [0, 1, -4], "easing": "linear" }
-        ]
-      }
-    }
-  }
-  ```
-- Backward compatible: loading a v1.0 file with empty tracks array still works (no animations)
-
-#### Implementation Order
-
-1. **CLOUD**: Design interpolation engine + export AudioParam scheduling strategy
-2. **LOCAL**: Keyframe data model in store + AnimationEngine.ts
-3. **LOCAL**: AudioBridge integration (read animated positions during playback)
-4. **LOCAL**: Timeline automation lanes (keyframe diamonds, add/remove/drag)
-5. **LOCAL**: Recording mode (auto-keyframe on drag during playback)
-6. **LOCAL**: 3D motion path preview (ground-plane polyline)
-7. **CLOUD**: Export integration (AudioParam scheduling on OfflineAudioContext)
-8. **LOCAL**: Project serialization (timeline.json with keyframe data)
-
-#### Verification
-
-- Add 2 keyframes to a source, play, confirm source sphere moves between positions in 3D
-- Confirm audio panning follows the animated position (sound moves in headphones)
-- Scrub playhead to a keyframe time, confirm source is at correct position
-- Export binaural mix with animated source, play in external player, hear movement
-- Save project, reopen, confirm keyframes restored and animation plays back correctly
-- Record mode: play + drag source, stop, replay, confirm motion replays
+- **Interpolation:** Upgraded from linear to **Catmull-Rom spline interpolation** for smooth, natural 3D motion.
+- **Timeline:** Multi-lane automation with keyframe dragging and real-time path previews.
+- **Export:** Frame-accurate position automation during binaural and 5.1 renders.
 
 ### Phase 16: Plugin System (COMPLETE)
 
 Extensible plugin architecture allowing third-party audio processors, visualizers, and exporters.
+- **API:** Robust context providing `audioEngine`, `transport`, and an `EventEmitter` for real-time updates.
+- **Rendering:** Visualizers inject custom R3F JSX directly into the viewport with error isolation.
+- **UI:** Dedicated **Plugin Editor** overlay for fine-grained parameter control.
+- **Examples:** Simple Reverb, Spectrum Visualizer, and Bitcrusher included.
+
+### Phase 17: Pro Features & UX Polish (COMPLETE)
+
+Advanced features to elevate SonarLox from MVP to a professional production tool.
+- **Undo/Redo:** High-performance history stack using selective state cloning (Ctrl+Z / Ctrl+Y).
+- **Drag & Drop:** Seamless workflow for adding audio/MIDI by dropping files directly into the 3D room.
+- **Dynamic Room:** Configurable room dimensions (10m to 50m) with real-time grid and boundary scaling.
+- **Modular Store:** Decomposed Zustand state into specialized slices for better performance.
+- **Refined UI:** Segmented Control Panel with dedicated sections for Session, Output, and Environment.
 
 #### Plugin Types
 

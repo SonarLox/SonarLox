@@ -20,26 +20,26 @@ Open-source 3D spatial audio editor (MIT License). Electron desktop app — load
 ## Key Architecture
 - Main process (src/main/) handles file dialogs and IPC only
 - Renderer process (src/renderer/) has all UI and audio logic
-- Zustand stores:
-  - `useAppStore` (src/renderer/stores/useAppStore.ts) — source of truth for sources, positions, volume, mute/solo, master volume, output device, camera, export state
-  - `useTransportStore` (src/renderer/stores/useTransportStore.ts) — transport state (play/pause/stop/seek/loop), playhead position via rAF loop
-- Audio graph (live): per-source gain -> panner(HRTF) -> analyser -> masterGain -> masterAnalyser -> destination
-- Audio graph (5.1 export): per-source -> gain(volume*vbapGain) -> [LFE: 120Hz lowpass] -> channelMerger(6) -> destination
+- Zustand stores (src/renderer/stores/):
+  - `useAppStore` — Decomposed into logical slices:
+    - `SourceSlice`: Source management (add/remove/properties)
+    - `AnimationSlice`: Keyframe and timeline automation
+    - `HistorySlice`: Robust Undo/Redo system with selective cloning
+    - `ProjectSlice`: Metadata, room size, and global audio settings
+    - `UiSlice`: Playback status, camera commands, export progress
+  - `useTransportStore` — Shared playback timing and playhead logic
+- Audio Engine:
+  - `WebAudioEngine.ts` (Singleton): Coordinates channels and master output.
+  - `SourceChannel.ts`: Individual audio channel logic (gain, panner, analyser, buffers).
+- Audio graph (live): per-source gain -> [plugin effects] -> panner(HRTF) -> analyser -> masterGain -> [master effects] -> masterAnalyser -> destination
 - Plugin system: 
   - Audio effects: inserted between gainNode and pannerNode (per-source) or between masterGain and masterAnalyser (master).
   - Visualizers: Rendered into R3F scene using custom `render` methods.
   - Exporters: Custom formats added to ExportDialog.
-  - Serialization: Active plugins and parameters saved in project `.sonarlox` files.
-- 3D source position syncs to Web Audio PannerNode on every frame via AudioBridge
-- AudioBridge also handles solo logic (if any soloed, non-soloed get gain=0) and master volume
-- Export respects solo/mute state (matches playback) and listener Y position
-- ExportDialog (src/renderer/components/ExportDialog.tsx) handles binaural, 5.1, or both export modes
-- Listener Y position syncs to Web Audio AudioListener via AudioBridge
-- AnalyserNode provides waveform data for visual feedback
-- TimelinePanel shows per-source waveforms with shared playhead, click-to-scrub
-- Keyboard shortcuts (App.tsx): Space=play/pause, 1-8=select source, Delete=remove source (with confirmation dialog)
-- Toast notifications (Toast.tsx): context-based, console-styled status strips with LED + drain bar
-- Confirmation dialogs: native OS dialogs via show-confirm-dialog IPC for destructive actions
+- Undo/Redo: Keyboard shortcuts (Ctrl+Z/Ctrl+Y) with selective state snapshots for performance.
+- Drag & Drop: Drop audio/MIDI files directly into the 3D room to create sources.
+- Timeline: Waveform scrubbing and smooth Catmull-Rom spline interpolation for animations.
+- Toasts & Dialogs: Console-styled status strips and native OS confirmation dialogs.
 
 ## Performance Pattern: Zustand Transient Updates
 - Components that read position in useFrame use `useAppStore.getState()` (no subscription, no re-render)
