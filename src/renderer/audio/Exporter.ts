@@ -1,10 +1,44 @@
 import { encodeWav } from './encodeWav'
+import { getAnimatedPositionsAtIntervals } from './AnimationEngine'
+import type { SourceId, SourceAnimation } from '../types'
 
+const SCHEDULE_INTERVAL_MS = 20
+
+/**
+ * Schedules position automation for a PannerNode based on source animations.
+ * Used to animate spatial position over time in binaural rendering.
+ */
+function schedulePositionAutomation(
+  pannerNode: PannerNode,
+  sourceId: SourceId,
+  animations: Record<SourceId, SourceAnimation>,
+  position: [number, number, number],
+  duration: number,
+): void {
+  const anim = animations[sourceId]
+  if (!anim || anim.keyframes.length === 0) return
+
+  const samples = getAnimatedPositionsAtIntervals(
+    sourceId, animations, position, duration, SCHEDULE_INTERVAL_MS
+  )
+  for (const s of samples) {
+    pannerNode.positionX.setValueAtTime(s.position[0], s.time)
+    pannerNode.positionY.setValueAtTime(s.position[1], s.time)
+    pannerNode.positionZ.setValueAtTime(s.position[2], s.time)
+  }
+}
+
+/**
+ * Exports a binaural WAV file for a single audio source with spatial positioning.
+ * Uses HRTF panning and supports keyframe animation for position changes.
+ */
 export async function exportBinauralWav(
   audioBuffer: AudioBuffer,
   position: [number, number, number],
   volume: number,
-  listenerY = 0
+  listenerY = 0,
+  sourceId?: SourceId,
+  animations?: Record<SourceId, SourceAnimation>,
 ): Promise<ArrayBuffer> {
   const sampleRate = 44100
   const length = Math.ceil(audioBuffer.duration * sampleRate)
@@ -28,6 +62,11 @@ export async function exportBinauralWav(
   pannerNode.positionY.value = position[1]
   pannerNode.positionZ.value = position[2]
 
+  // Schedule position automation if keyframes exist
+  if (sourceId && animations) {
+    schedulePositionAutomation(pannerNode, sourceId, animations, position, audioBuffer.duration)
+  }
+
   source.connect(gainNode)
   gainNode.connect(pannerNode)
   pannerNode.connect(offlineCtx.destination)
@@ -37,15 +76,25 @@ export async function exportBinauralWav(
   return encodeWav(rendered)
 }
 
+/**
+ * Interface for defining a source to be exported in binaural mixing.
+ * Contains audio buffer, spatial position, and volume settings.
+ */
 export interface ExportSource {
   audioBuffer: AudioBuffer
   position: [number, number, number]
   volume: number
+  sourceId?: SourceId
 }
 
+/**
+ * Exports a mixed binaural WAV file from multiple audio sources.
+ * Combines multiple sources with individual spatial positions and animations.
+ */
 export async function exportMixedBinauralWav(
   sources: ExportSource[],
-  listenerY = 0
+  listenerY = 0,
+  animations?: Record<SourceId, SourceAnimation>,
 ): Promise<ArrayBuffer> {
   if (sources.length === 0) throw new Error('No sources to export')
 
@@ -73,6 +122,10 @@ export async function exportMixedBinauralWav(
     pannerNode.positionY.value = src.position[1]
     pannerNode.positionZ.value = src.position[2]
 
+    if (src.sourceId && animations) {
+      schedulePositionAutomation(pannerNode, src.sourceId, animations, src.position, src.audioBuffer.duration)
+    }
+
     source.connect(gainNode)
     gainNode.connect(pannerNode)
     pannerNode.connect(offlineCtx.destination)
@@ -95,6 +148,10 @@ const SPEAKERS_SORTED = [
   { angle: (110 * Math.PI) / 180, outIndex: 4 },   // SL
 ]
 
+/**
+ * Computes 5.1 speaker gains for a given 3D position using VBAP (Vector Base Amplitude Panning).
+ * Calculates spatial distribution across 6 speakers based on source angle and distance.
+ */
 function compute51Gains(position: [number, number, number]): number[] {
   const [x, , z] = position
   // Source angle from listener: atan2 gives (-PI, PI], 0 = front
@@ -172,11 +229,45 @@ function compute51Gains(position: [number, number, number]): number[] {
   return gains
 }
 
+/**
+ * Schedules gain automation for 5.1 speaker outputs based on source animations.
+ * Updates gain values over time for each speaker channel during playback.
+ */
+function schedule51GainAutomation(
+  gainNodes: GainNode[],
+  sourceId: SourceId,
+  animations: Record<SourceId, SourceAnimation>,
+  position: [number, number, number],
+  volume: number,
+  listenerY: number,
+  duration: number,
+): void {
+  const anim = animations[sourceId]
+  if (!anim || anim.keyframes.length === 0) return
+
+  const samples = getAnimatedPositionsAtIntervals(
+    sourceId, animations, position, duration, SCHEDULE_INTERVAL_MS
+  )
+  for (const s of samples) {
+    const adjusted: [number, number, number] = [s.position[0], s.position[1] - listenerY, s.position[2]]
+    const gains = compute51Gains(adjusted)
+    for (let ch = 0; ch < 6; ch++) {
+      gainNodes[ch].gain.setValueAtTime(volume * gains[ch], s.time)
+    }
+  }
+}
+
+/**
+ * Exports a 5.1 WAV file for a single audio source with spatial positioning.
+ * Uses VBAP panning and supports keyframe animation for speaker gains.
+ */
 export async function export51WavSingle(
   audioBuffer: AudioBuffer,
   position: [number, number, number],
   volume: number,
-  listenerY = 0
+  listenerY = 0,
+  sourceId?: SourceId,
+  animations?: Record<SourceId, SourceAnimation>,
 ): Promise<ArrayBuffer> {
   const sampleRate = 44100
   const length = Math.ceil(audioBuffer.duration * sampleRate)
@@ -190,6 +281,7 @@ export async function export51WavSingle(
 
   const gains = compute51Gains(adjustedPosition)
   const merger = offlineCtx.createChannelMerger(6)
+  const gainNodes: GainNode[] = []
 
   for (let ch = 0; ch < 6; ch++) {
     const source = offlineCtx.createBufferSource()
@@ -197,6 +289,7 @@ export async function export51WavSingle(
 
     const gainNode = offlineCtx.createGain()
     gainNode.gain.value = volume * gains[ch]
+    gainNodes.push(gainNode)
 
     // LFE channel: apply 120Hz lowpass
     if (ch === 3) {
@@ -214,15 +307,24 @@ export async function export51WavSingle(
     source.start()
   }
 
+  if (sourceId && animations) {
+    schedule51GainAutomation(gainNodes, sourceId, animations, position, volume, listenerY, audioBuffer.duration)
+  }
+
   merger.connect(offlineCtx.destination)
 
   const rendered = await offlineCtx.startRendering()
   return encodeWav(rendered)
 }
 
+/**
+ * Exports a mixed 5.1 WAV file from multiple audio sources.
+ * Combines multiple sources with individual spatial positions and animations.
+ */
 export async function export51Wav(
   sources: ExportSource[],
-  listenerY = 0
+  listenerY = 0,
+  animations?: Record<SourceId, SourceAnimation>,
 ): Promise<ArrayBuffer> {
   if (sources.length === 0) throw new Error('No sources to export')
 
@@ -241,6 +343,7 @@ export async function export51Wav(
     ]
 
     const gains = compute51Gains(adjustedPosition)
+    const gainNodes: GainNode[] = []
 
     for (let ch = 0; ch < 6; ch++) {
       const source = offlineCtx.createBufferSource()
@@ -248,6 +351,7 @@ export async function export51Wav(
 
       const gainNode = offlineCtx.createGain()
       gainNode.gain.value = src.volume * gains[ch]
+      gainNodes.push(gainNode)
 
       if (ch === 3) {
         const lpf = offlineCtx.createBiquadFilter()
@@ -262,6 +366,10 @@ export async function export51Wav(
       }
 
       source.start()
+    }
+
+    if (src.sourceId && animations) {
+      schedule51GainAutomation(gainNodes, src.sourceId, animations, src.position, src.volume, listenerY, src.audioBuffer.duration)
     }
   }
 
