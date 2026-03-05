@@ -66,9 +66,11 @@ project.sonarlox (ZIP archive)
 ├── manifest.json          # Project metadata + format version
 ├── state.json             # Full editor state (serialized Zustand store + extensions)
 ├── timeline.json          # Keyframe data (empty array if no timeline yet)
-├── audio/                 # Audio assets
-│   ├── source_0.wav       # Embedded audio (if embed mode)
-│   └── source_0.meta.json # Per-source audio metadata
+├── audio/                 # Audio assets (one pair per source)
+│   ├── source_0.wav       # Embedded audio for source 0
+│   ├── source_0.meta.json # Per-source audio metadata
+│   ├── source_1.wav       # Embedded audio for source 1
+│   └── source_1.meta.json # ...up to source_7
 ├── video/                 # Reserved for v2.0+ video sync
 ├── hrir/                  # Reserved for v1.3+ custom HRIR datasets
 ├── midi/                  # Reserved for v1.2+ MIDI spatial mapping
@@ -91,8 +93,8 @@ project.sonarlox (ZIP archive)
   "duration": 180.5,
   "sampleRate": 44100,
   "audioEmbedMode": "embedded",
-  "sourceCount": 1,
-  "hasTimeline": true,
+  "sourceCount": 2,
+  "hasTimeline": false,
   "hasVideoSync": false,
   "monitoringMode": "headphones-hrtf"
 }
@@ -111,7 +113,7 @@ project.sonarlox (ZIP archive)
 | `duration` | number | Yes | Total audio duration in seconds |
 | `sampleRate` | number | Yes | Project sample rate in Hz |
 | `audioEmbedMode` | `"embedded"` \| `"referenced"` | Yes | Whether audio is inside the ZIP or external |
-| `sourceCount` | number | Yes | Number of audio sources (1 in v1.0) |
+| `sourceCount` | number | Yes | Number of audio sources (up to 8) |
 | `hasTimeline` | boolean | Yes | Whether timeline keyframes exist |
 | `hasVideoSync` | boolean | Yes | Whether video sync is configured (always `false` in v1.x) |
 | `monitoringMode` | string | Yes | Output mode used during editing (e.g., `"headphones-hrtf"`) |
@@ -122,15 +124,32 @@ Captures the full editor state. This is essentially the serialized Zustand store
 
 ```json
 {
-  "source": {
-    "position": [2.5, 0.0, -1.3],
-    "audioRef": "source_0",
-    "type": "file",
-    "testToneType": null,
-    "volume": 1.0,
-    "mute": false,
-    "solo": false
-  },
+  "sources": [
+    {
+      "id": "a1b2c3d4-...",
+      "label": "Dialogue",
+      "audioRef": "source_0",
+      "type": "file",
+      "position": [2.5, 0.0, -1.3],
+      "volume": 1.0,
+      "mute": false,
+      "solo": false,
+      "color": "#ff6622",
+      "sineFrequency": 440
+    },
+    {
+      "id": "e5f6a7b8-...",
+      "label": "Ambience",
+      "audioRef": "source_1",
+      "type": "file",
+      "position": [-3.0, 0.0, 2.0],
+      "volume": 0.7,
+      "mute": false,
+      "solo": false,
+      "color": "#2288ff",
+      "sineFrequency": 440
+    }
+  ],
   "listener": {
     "position": [0.0, 0.0, 0.0],
     "orientation": {
@@ -157,25 +176,19 @@ Captures the full editor state. This is essentially the serialized Zustand store
     "playbackPosition": 42.3
   },
   "camera": {
-    "position": [5.0, 8.0, 10.0],
-    "target": [0.0, 0.0, 0.0]
+    "presets": [null, null, null, null]
   },
   "rendering": {
-    "monitoringMode": "headphones-hrtf",
-    "outputModes": {
-      "headphones-hrtf": { "enabled": true, "panningModel": "HRTF", "hrirDataset": null },
-      "speakers-stereo": { "enabled": true, "panningModel": "equalpower", "crossfeedAmount": 0.0 },
-      "speakers-surround": { "enabled": false, "channelLayout": null, "channelMap": null },
-      "ambisonics": { "enabled": false, "order": null, "format": null }
-    }
+    "monitoringMode": "headphones-hrtf"
   },
-  "sync": null,
   "preferences": {
     "selectedOutputDevice": null,
-    "fftSize": 2048
+    "listenerY": 0.0
   }
 }
 ```
+
+**Multi-source:** The `sources` array holds up to 8 sources, each with a unique `id`, display `label`, `color`, and `audioRef` pointing to its audio file in the `audio/` directory. The index in the array corresponds to the `source_N` naming convention for audio files.
 
 **Rendering in the project context:** `monitoringMode` indicates which output mode the editor is currently using for real-time monitoring. When the project is exported to `.snlxp`, this becomes `authoredFor` in the playback file — communicating to the listener how the mix was monitored.
 
@@ -186,7 +199,8 @@ Captures the full editor state. This is essentially the serialized Zustand store
 | `type` | Meaning | `audioRef` points to |
 |--------|---------|---------------------|
 | `"file"` | User-loaded audio file | Entry in `audio/` directory |
-| `"test-tone"` | Built-in test tone | Null — `testToneType` specifies which |
+| `"tone"` | Built-in test tone (sine or pink noise) | Entry in `audio/` directory (generated buffer) |
+| `"midi-track"` | MIDI channel rendered to audio | Entry in `audio/` directory (rendered buffer) |
 
 **Audio reference resolution:**
 
@@ -422,6 +436,7 @@ The `sync` field is reserved for video and external clock synchronization. In v1
 | `"video"` | Lock timeline to video file timecode | v2.0+ |
 | `"ltc"` | Lock to Linear Timecode (external clock) | v2.x+ |
 | `"mtc"` | Lock to MIDI Timecode | v2.x+ |
+| `"mkv"` | Lock timeline to MKV container timestamps | v3.0+ |
 | `"ntp"` | Network sync for multi-device playback | v3.0+ |
 
 This is the foundation for the movie use case: a `.snlxp` file references a video, the timeline keyframes are authored against that video's timecode, and the player locks spatial audio playback to video frames. The user watches the movie with spatialized audio rendered in real time to their chosen output mode.
@@ -591,7 +606,7 @@ These additions would be additive (minor version bumps) and backwards-compatible
 
 | Feature | Files affected | Version | Notes |
 |---------|---------------|---------|-------|
-| Multiple sources | `state.json` → `sources[]` array, multiple `audio/source_N.*` | 1.1.0 | Per-source volume, mute, solo |
+| ~~Multiple sources~~ | ~~`state.json` → `sources[]` array, multiple `audio/source_N.*`~~ | ~~1.1.0~~ | **Implemented in v1.0.** Up to 8 sources with per-source volume, mute, solo, color, label. |
 | Speakers (stereo) output mode | `rendering.outputModes.speakers-stereo` enabled | 1.1.0 | StereoPannerNode + distance attenuation |
 | MIDI spatial mapping | New `midi/mapping.json` with CC→axis config | 1.2.0 | 14-bit CC pairs for smooth positioning |
 | MIDI import/export | `midi/` directory with `.mid` files | 1.2.0 | Import automation from DAW, export for reuse |
@@ -609,15 +624,23 @@ These additions would be additive (minor version bumps) and backwards-compatible
 | Stem separation | Multiple `audio/stem_N.*` per source, `stems.json` manifest | AI-based (Demucs) dialogue/music/FX split |
 | Effects chain | New `effects.json` with per-source and bus processing | Reverb, EQ, compression — requires new rendering graph |
 
-### v3.0+ — Speculative
+### v3.0 — Spatial Media Player
+
+The v3.0 release transforms SonarLox from a spatial audio authoring tool into a spatial media playback platform. The flagship feature is an MKV-aware player that demuxes multi-channel audio streams, maps channels to 3D positions, and visualizes per-channel activity in real time.
 
 | Feature | Notes |
 |---------|-------|
-| Network sync (`sync.type: "ntp"`) | Multi-device synchronized playback |
-| Head tracking (`sync.type: "headtracking"`) | Webcam/gyroscope → listener orientation |
-| Collaborative editing | Operational transform on `state.json` and `timeline.json` |
-| Web player export | Static HTML+JS bundle that plays `.snlxp` in a browser |
-| Spatial audio codec | Compressed spatial stream format (replacing WAV + JSON timeline) |
+| MKV / multi-container playback | FFmpeg-based demuxer (main process child process). Stream selection UI showing codec, channel count, language, label per track. |
+| Multi-channel to 3D source mapping | 7.1.4 channels map to positioned sources in the scene. Each channel becomes a source with its own AnalyserNode. Output mode router re-spatializes to user's actual hardware. |
+| Per-channel visualizer | "Speaker Dome" -- glowing orbs at standard speaker positions (7.1.4 layout), pulsing with RMS level per channel. Channel strip waterfall sidebar. LFE as room vibration. |
+| Atmos bed channel support | Decode TrueHD/EAC-3 to bed channels (7.1.4). Object metadata requires Dolby SDK (proprietary); bed channels are the MIT-compatible path. |
+| Channel solo in 3D | Click any speaker orb to solo that channel. |
+| Timeline energy heatmap | Horizontal bar: time on x-axis, channels stacked on y-axis, color = energy. Spatial "story" of entire content at a glance. |
+| Network sync (`sync.type: "ntp"`) | Multi-device synchronized playback. |
+| Head tracking (`sync.type: "headtracking"`) | Webcam/gyroscope to listener orientation. |
+| Collaborative editing | Operational transform on `state.json` and `timeline.json`. |
+| Web player export | Static HTML+JS bundle that plays `.snlxp` in a browser. |
+| Spatial audio codec | Compressed spatial stream format (replacing WAV + JSON timeline). |
 
 ---
 
@@ -654,9 +677,9 @@ That's it. No proprietary SDK, no API keys, no build system dependencies. A func
 To build a tool that exports `.sonarlox` project files:
 
 1. Construct `manifest.json` with the required fields.
-2. Construct `state.json` with at least `source`, `listener`, `spatial`, and `room`.
+2. Construct `state.json` with at least `sources[]`, `listener`, `spatial`, and `room`.
 3. Construct `timeline.json` (can be `{"version":"1.0.0","tracks":[]}` if no automation).
-4. Write audio to `audio/source_0.wav` and metadata to `audio/source_0.meta.json`.
+4. For each source, write audio to `audio/source_N.wav` and metadata to `audio/source_N.meta.json`.
 5. ZIP everything into a file with the `.sonarlox` extension.
 
 ### Compatibility Testing
