@@ -10,7 +10,30 @@ import type {
 import { audioEngine } from '../audio/WebAudioEngine'
 import { useTransportStore } from '../stores/useTransportStore'
 
+class EventEmitter {
+  private listeners: Map<string, Set<Function>> = new Map()
+
+  on(event: string, cb: Function) {
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set())
+    this.listeners.get(event)!.add(cb)
+    return () => this.off(event, cb)
+  }
+
+  off(event: string, cb: Function) {
+    this.listeners.get(event)?.delete(cb)
+  }
+
+  emit(event: string, ...args: any[]) {
+    this.listeners.get(event)?.forEach(cb => cb(...args))
+  }
+
+  clear() {
+    this.listeners.clear()
+  }
+}
+
 const pluginCache = new Map<string, SonarLoxPlugin>()
+const eventCache = new Map<string, EventEmitter>()
 const cleanupCache = new Map<string, () => void>()
 
 /** Loads and activates a plugin from its manifest */
@@ -36,16 +59,15 @@ export async function loadPlugin(manifest: PluginManifest): Promise<PluginInstan
     throw new Error(`Plugin ${manifest.id} does not export a constructor`)
   }
 
-  const transportListeners = new Set<(state: any) => void>()
-  const paramListeners = new Set<(id: string, val: any) => void>()
+  const events = new EventEmitter()
+  eventCache.set(manifest.id, events)
 
   const transportUnsub = useTransportStore.subscribe((state) => {
-    const transportInfo = {
+    events.emit('transport', {
       isPlaying: state.isPlaying,
       playheadPosition: state.playheadPosition,
       duration: state.duration,
-    }
-    transportListeners.forEach(cb => cb(transportInfo))
+    })
   })
 
   const pluginContext: PluginContext = {
@@ -57,25 +79,19 @@ export async function loadPlugin(manifest: PluginManifest): Promise<PluginInstan
       playheadPosition: useTransportStore.getState().playheadPosition,
       duration: useTransportStore.getState().duration,
     },
-    onTransportChange: (cb) => {
-      transportListeners.add(cb)
-      return () => transportListeners.delete(cb)
-    },
-    onParameterChange: (cb) => {
-      paramListeners.add(cb)
-      return () => paramListeners.delete(cb)
-    },
+    onTransportChange: (cb) => events.on('transport', cb),
+    onParameterChange: (cb) => events.on('parameter', cb),
     log: (msg) => console.log(`[Plugin:${manifest.id}]`, msg)
   }
 
   const plugin = new (PluginClass as new () => SonarLoxPlugin)()
   plugin.activate(pluginContext)
 
-  // Wrap setParameter to trigger listeners
+  // Standardized parameter update triggering
   const originalSetParameter = plugin.setParameter.bind(plugin)
   plugin.setParameter = (id, val) => {
     originalSetParameter(id, val)
-    paramListeners.forEach(cb => cb(id, val))
+    events.emit('parameter', id, val)
   }
 
   // Set default parameter values
@@ -88,8 +104,8 @@ export async function loadPlugin(manifest: PluginManifest): Promise<PluginInstan
   pluginCache.set(manifest.id, plugin)
   cleanupCache.set(manifest.id, () => {
     transportUnsub()
-    transportListeners.clear()
-    paramListeners.clear()
+    events.clear()
+    eventCache.delete(manifest.id)
   })
 
   return {
