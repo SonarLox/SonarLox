@@ -56,14 +56,58 @@ interface WaveformRowProps {
   offset: number
 }
 
+const peaksCache = new Map<string, Float32Array>()
+
+function useWaveformPeaks(sourceId: string, offset: number, duration: number, width: number) {
+  return useMemo(() => {
+    const buffer = audioEngine.getAudioBuffer(sourceId)
+    if (!buffer) return new Float32Array(0)
+
+    const targetPoints = Math.min(Math.floor(width * 1.5), 1200)
+    if (targetPoints <= 0) return new Float32Array(0)
+
+    const cacheKey = `${sourceId}-${offset}-${duration}-${targetPoints}`
+    if (peaksCache.has(cacheKey)) return peaksCache.get(cacheKey)!
+
+    const bufferData = buffer.getChannelData(0)
+    const sampleStart = Math.floor((offset / buffer.duration) * bufferData.length)
+    const sampleEnd = Math.min(
+      Math.floor(((offset + duration) / buffer.duration) * bufferData.length),
+      bufferData.length
+    )
+    const sampleLength = sampleEnd - sampleStart
+    const step = Math.max(1, Math.floor(sampleLength / targetPoints))
+    const peaks = new Float32Array(targetPoints)
+
+    for (let i = 0; i < targetPoints; i++) {
+      const s = sampleStart + i * step
+      const e = Math.min(s + step, sampleEnd)
+      let max = 0
+      for (let j = s; j < e; j++) {
+        const abs = Math.abs(bufferData[j])
+        if (abs > max) max = abs
+      }
+      peaks[i] = max
+    }
+
+    peaksCache.set(cacheKey, peaks)
+    // Basic cache eviction
+    if (peaksCache.size > 50) {
+      const firstKey = peaksCache.keys().next().value
+      if (firstKey !== undefined) peaksCache.delete(firstKey)
+    }
+
+    return peaks
+  }, [sourceId, offset, duration, width])
+}
+
 function WaveformRow({ sourceId, color, duration, totalDuration, width, offset }: WaveformRowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const peaks = useWaveformPeaks(sourceId, offset, duration, width)
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const buffer = audioEngine.getAudioBuffer(sourceId)
-    if (!buffer) return
+    if (!canvas || peaks.length === 0) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -76,38 +120,12 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width, offset }
     ctx.scale(dpr, dpr)
     ctx.clearRect(0, 0, width, ROW_HEIGHT)
 
-    const targetPoints = Math.min(Math.floor(sourceWidth * 1.5), 1200)
-    if (targetPoints <= 0) return
-    
-    // We need to sample only the relevant part of the buffer
-    const bufferData = buffer.getChannelData(0)
-    const sampleStart = Math.floor((offset / buffer.duration) * bufferData.length)
-    const sampleEnd = Math.min(
-      Math.floor(((offset + duration) / buffer.duration) * bufferData.length),
-      bufferData.length
-    )
-    const sampleLength = sampleEnd - sampleStart
-    
-    const step = Math.max(1, Math.floor(sampleLength / targetPoints))
-    const peaks = new Float32Array(targetPoints)
-    for (let i = 0; i < targetPoints; i++) {
-      const s = sampleStart + i * step
-      const e = Math.min(s + step, sampleEnd)
-      let max = 0
-      for (let j = s; j < e; j++) {
-        const abs = Math.abs(bufferData[j])
-        if (abs > max) max = abs
-      }
-      peaks[i] = max
-    }
-
     const barWidth = sourceWidth / peaks.length
     const midY = ROW_HEIGHT / 2
 
     ctx.save()
     ctx.translate(startX, 0)
 
-    // Mirrored waveform with gradient fill
     const grad = ctx.createLinearGradient(0, 2, 0, ROW_HEIGHT - 2)
     grad.addColorStop(0, color + '10')
     grad.addColorStop(0.35, color + '50')
@@ -130,7 +148,6 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width, offset }
     ctx.closePath()
     ctx.fill()
 
-    // Center spine line
     ctx.strokeStyle = color + '30'
     ctx.lineWidth = 0.5
     ctx.beginPath()
@@ -139,7 +156,7 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width, offset }
     ctx.stroke()
     
     ctx.restore()
-  }, [sourceId, color, duration, totalDuration, width, offset])
+  }, [sourceId, color, duration, totalDuration, width, offset, peaks])
 
   return (
     <canvas

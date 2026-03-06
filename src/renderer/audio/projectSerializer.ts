@@ -1,6 +1,7 @@
 import type { AppState, AudioSource, ProjectManifest, SourceId, SourceAnimation, SourceType } from '../types'
 import type { TransportState } from '../types'
 import type { SerializedPluginState, PluginInstance } from '../plugins/types'
+import type { IAudioEngine } from './IAudioEngine'
 
 /**
  * Interface representing the complete serialized state of a SonarLox project.
@@ -209,6 +210,48 @@ export function buildManifest(
 
 export function serializeTimeline(animations: Record<SourceId, SourceAnimation>): string {
   return JSON.stringify(animations, null, 2)
+}
+
+export interface ProjectAudioFile {
+  name: string
+  wavBuffer: ArrayBuffer
+  meta: string
+}
+
+/**
+ * Gathers all active audio and MIDI buffers from the engine for project embedding.
+ */
+export function gatherProjectAudioFiles(
+  sources: AudioSource[],
+  engine: IAudioEngine,
+  encodeWavFn: (buf: AudioBuffer) => ArrayBuffer
+): ProjectAudioFile[] {
+  const audioFiles: ProjectAudioFile[] = []
+  
+  for (let i = 0; i < sources.length; i++) {
+    const source = sources[i]
+    if (source.sourceType === 'file') {
+      const audioBuf = engine.getAudioBuffer(source.id)
+      if (audioBuf) {
+        audioFiles.push({
+          name: `source_${i}.wav`,
+          wavBuffer: encodeWavFn(audioBuf),
+          meta: JSON.stringify({ originalFileName: source.audioFileName ?? `source_${i}.wav` }),
+        })
+      }
+    } else if (source.sourceType === 'midi-track') {
+      const midiBuf = engine.getMidiBuffer(source.id)
+      if (midiBuf) {
+        audioFiles.push({
+          name: `source_${i}.mid`,
+          wavBuffer: midiBuf,
+          meta: JSON.stringify({ originalFileName: source.audioFileName ?? `source_${i}.mid` }),
+        })
+      }
+    }
+  }
+  
+  return audioFiles
 }
 
 export function deserializeTimeline(timelineJson: Record<string, unknown>): Record<SourceId, SourceAnimation> {

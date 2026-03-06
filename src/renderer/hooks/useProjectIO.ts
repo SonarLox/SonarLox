@@ -10,6 +10,7 @@ import {
   deserializeTimeline,
   serializePluginState,
   deserializePluginState,
+  gatherProjectAudioFiles,
 } from '../audio/projectSerializer'
 import { encodeWav } from '../audio/encodeWav'
 import { usePluginStore } from '../plugins/usePluginStore'
@@ -35,29 +36,9 @@ export function useProjectIO() {
     const pluginState = usePluginStore.getState().activePlugins
     stateObj.plugins = serializePluginState(pluginState)
     const stateJson = JSON.stringify(stateObj, null, 2)
-    const audioFiles: Array<{ name: string; wavBuffer: ArrayBuffer; meta: string }> = []
-    for (let i = 0; i < appState.sources.length; i++) {
-      const source = appState.sources[i]
-      if (source.sourceType === 'file') {
-        const audioBuf = audioEngine.getAudioBuffer(source.id)
-        if (audioBuf) {
-          audioFiles.push({
-            name: `source_${i}.wav`,
-            wavBuffer: encodeWav(audioBuf),
-            meta: JSON.stringify({ originalFileName: source.audioFileName ?? `source_${i}.wav` }),
-          })
-        }
-      } else if (source.sourceType === 'midi-track') {
-        const midiBuf = audioEngine.getMidiBuffer(source.id)
-        if (midiBuf) {
-          audioFiles.push({
-            name: `source_${i}.mid`,
-            wavBuffer: midiBuf, // Reuse wavBuffer field for midi raw buffer
-            meta: JSON.stringify({ originalFileName: source.audioFileName ?? `source_${i}.mid` }),
-          })
-        }
-      }
-    }
+    
+    const audioFiles = gatherProjectAudioFiles(appState.sources, audioEngine, encodeWav)
+    
     const duration = audioEngine.getDuration()
     const sampleRate = 44100
 
