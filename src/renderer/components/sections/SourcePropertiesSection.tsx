@@ -1,4 +1,5 @@
 import { useAppStore } from '../../stores/useAppStore'
+import { useTransportStore } from '../../stores/useTransportStore'
 import { audioEngine } from '../../audio/WebAudioEngine'
 import { useToast } from '../ToastContext'
 
@@ -10,11 +11,25 @@ export function SourcePropertiesSection() {
   const setSourceAudioFileName = useAppStore((s) => s.setSourceAudioFileName)
   const setSourceSineFrequency = useAppStore((s) => s.setSourceSineFrequency)
 
+  const playheadPosition = useTransportStore((s) => s.playheadPosition)
+  const animations = useAppStore((s) => s.animations)
+  const removeKeyframe = useAppStore((s) => s.removeKeyframe)
+
   if (!selectedSource) return null
 
   const isFileSource = selectedSource.sourceType === 'file'
   const isToneSource = selectedSource.sourceType === 'tone'
   const isSineActive = isToneSource && (selectedSource.audioFileName?.startsWith('Sine') ?? false)
+
+  const hasKeyframeAtPlayhead = selectedSourceId && animations[selectedSourceId]?.keyframes.some(
+    kf => Math.abs(kf.time - playheadPosition) < 0.01
+  )
+
+  const handleRemoveKeyframe = () => {
+    if (selectedSourceId) {
+      removeKeyframe(selectedSourceId, playheadPosition)
+    }
+  }
 
   const handleLoadAudio = async () => {
     if (!selectedSourceId || !window.api) return
@@ -106,7 +121,19 @@ export function SourcePropertiesSection() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className="cp-section-label">Position</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span className="cp-section-label">Position</span>
+          {hasKeyframeAtPlayhead && (
+            <button
+              className="btn-icon btn-icon--muted"
+              onClick={handleRemoveKeyframe}
+              title="Delete keyframe at playhead"
+              style={{ fontSize: 8, padding: '1px 4px' }}
+            >
+              DELETE KF
+            </button>
+          )}
+        </div>
         <div className="readout">
           <span style={{ color: 'var(--accent-red)', opacity: 0.7 }}>X</span> {selectedSource.position[0].toFixed(2)}
           <span style={{ color: 'var(--accent-teal)', opacity: 0.7, marginLeft: 8 }}>Y</span> {selectedSource.position[1].toFixed(2)}

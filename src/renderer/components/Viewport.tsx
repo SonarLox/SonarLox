@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { Room } from './Room'
 import { Listener } from './Listener'
-import { SoundSource } from './SoundSource'
+import { SoundSource, KeyframeGhosts } from './SoundSource'
 import { AudioBridge } from './AudioBridge'
 import { DistanceRings } from './DistanceRings'
 import { MotionPath } from './MotionPath'
@@ -36,6 +36,9 @@ export function Viewport() {
       <Listener />
       {sourceIds.map((id) => (
         <SoundSource key={id} sourceId={id} />
+      ))}
+      {sourceIds.map((id) => (
+        <KeyframeGhosts key={`ghosts-${id}`} sourceId={id} />
       ))}
       <AudioBridge />
       <DistanceRings />

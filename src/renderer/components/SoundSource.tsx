@@ -72,7 +72,7 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     if (analyser) {
       timeDomainRef.current = new Uint8Array(analyser.fftSize)
     }
-  })
+  }, [sourceId])
 
   /**
    * Retrieves the current source data from the store
@@ -91,10 +91,11 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
         lastStoreUpdate.current = now
         setSourcePosition(sourceId, [x, y, z])
 
-        // Record keyframe if recording during playback
+        // Record keyframe if recording mode is active
         const { isRecordingKeyframes, setKeyframe } = useAppStore.getState()
         const transport = useTransportStore.getState()
-        if (isRecordingKeyframes && transport.isPlaying) {
+        if (isRecordingKeyframes) {
+          // Record at current playhead position even if stopped
           setKeyframe(sourceId, transport.playheadPosition, [x, y, z])
         }
       }
@@ -180,11 +181,11 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
               .applyQuaternion(camera.quaternion)
               .setY(0)
               .normalize().length() > 0.01
-              ? new Vector3(0, 0, 1)
-                  .applyQuaternion(camera.quaternion)
-                  .setY(0)
-                  .normalize()
-              : new Vector3(0, 0, 1),
+            ? new Vector3(0, 0, 1)
+                .applyQuaternion(camera.quaternion)
+                .setY(0)
+                .normalize()
+            : new Vector3(0, 0, 1),
             spherePos
           )
         } else {
@@ -256,12 +257,14 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     const mesh = meshRef.current
     if (!mesh) return
 
+    const state = useAppStore.getState()
+    const isRecording = state.isRecordingKeyframes
+    const transport = useTransportStore.getState()
+
     // Update position from store (or animated position during playback)
     const source = getSource()
     if (source && !isDragging.current) {
-      const transport = useTransportStore.getState()
       const useAnimation = transport.isPlaying || transport.isPaused
-      const state = useAppStore.getState()
       if (useAnimation && state.animations[sourceId]?.keyframes.length) {
         const pos = getAnimatedPosition(sourceId, transport.playheadPosition, state.animations, source.position)
         mesh.position.set(...pos)
@@ -273,7 +276,7 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     }
 
     // Selected state
-    const isSelected = useAppStore.getState().selectedSourceId === sourceId
+    const isSelected = state.selectedSourceId === sourceId
 
     // Front/back color shift based on azimuth from listener (faces -Z)
     const azimuthAngle = Math.atan2(mesh.position.x, -mesh.position.z)
@@ -281,18 +284,29 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     const HALF_PI = Math.PI / 2
 
     const analyser = analyserRef.current ?? audioEngine.getAnalyser(sourceId)
+    const mat = mesh.material as MeshStandardMaterial
+
     if (!analyser) {
       const s = BASE_SCALE / 0.3
       mesh.scale.setScalar(s)
-      const mat = mesh.material as MeshStandardMaterial
-      mat.emissiveIntensity = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
-      if (absAzimuth > HALF_PI) {
-        const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
-        tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
-        mat.emissive.copy(tempColor.current)
+      let baseE = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
+
+      // Add red pulse if recording
+      if (isRecording) {
+        const pulse = (Math.sin(performance.now() * 0.01) + 1) * 0.5
+        mat.emissive.lerp(new Color('#ff0000'), pulse * 0.6)
+        baseE += pulse * 0.3
       } else {
-        mat.emissive.copy(baseColorRef.current)
+        // Apply front/back color shift
+        if (absAzimuth > HALF_PI) {
+          const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
+          tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
+          mat.emissive.copy(tempColor.current)
+        } else {
+          mat.emissive.copy(baseColorRef.current)
+        }
       }
+      mat.emissiveIntensity = baseE
       return
     }
 
@@ -315,26 +329,32 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
     const targetScale = (BASE_SCALE + amplitude * (MAX_SCALE - BASE_SCALE)) / 0.3
     mesh.scale.setScalar(targetScale)
 
-    const mat = mesh.material as MeshStandardMaterial
-    const baseE = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
-    mat.emissiveIntensity = baseE + amplitude * (MAX_EMISSIVE - baseE)
+    let baseE = isSelected ? BASE_EMISSIVE + SELECTED_EMISSIVE_BOOST : BASE_EMISSIVE
 
-    // Apply front/back color shift
-    if (absAzimuth > HALF_PI) {
-      const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
-      tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
-      mat.emissive.copy(tempColor.current)
+    // Add red pulse if recording
+    if (isRecording) {
+      const pulse = (Math.sin(performance.now() * 0.01) + 1) * 0.5
+      mat.emissive.lerp(new Color('#ff0000'), pulse * 0.6)
+      baseE += pulse * 0.3
     } else {
-      mat.emissive.copy(baseColorRef.current)
+      // Apply front/back color shift
+      if (absAzimuth > HALF_PI) {
+        const t = Math.min((absAzimuth - HALF_PI) / HALF_PI, 1)
+        tempColor.current.copy(baseColorRef.current).lerp(rearColorRef.current, t)
+        mat.emissive.copy(tempColor.current)
+      } else {
+        mat.emissive.copy(baseColorRef.current)
+      }
     }
+
+    mat.emissiveIntensity = baseE + amplitude * (MAX_EMISSIVE - baseE)
   })
 
-  // Get initial values for rendering
+  // Cache base and rear-shifted colors for front/back emissive shift
   const source = useAppStore((s) => s.sources.find((src) => src.id === sourceId))
   const color = source?.color ?? '#ff6622'
   const position = source?.position ?? [2, 1, 0]
 
-  // Cache base and rear-shifted colors for front/back emissive shift
   useEffect(() => {
     baseColorRef.current.set(color)
     // Desaturated blue-shifted version for rear hemisphere
@@ -358,5 +378,32 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
       <sphereGeometry args={[0.3, 32, 32]} />
       <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.3} />
     </mesh>
+  )
+}
+
+/**
+ * Renders small "ghost" markers for all keyframes of a source.
+ * Helps users visualize the motion path in the 3D viewport.
+ */
+export function KeyframeGhosts({ sourceId }: { sourceId: SourceId }) {
+  const animations = useAppStore((s) => s.animations)
+  const source = useAppStore((s) => s.sources.find((src) => src.id === sourceId))
+  const keyframes = animations[sourceId]?.keyframes ?? []
+  
+  if (keyframes.length === 0 || !source) return null
+
+  return (
+    <group>
+      {keyframes.map((kf, i) => (
+        <mesh key={`${sourceId}-ghost-${i}`} position={kf.position}>
+          <sphereGeometry args={[0.06, 8, 8]} />
+          <meshBasicMaterial 
+            color={source.color} 
+            transparent 
+            opacity={0.3} 
+          />
+        </mesh>
+      ))}
+    </group>
   )
 }
