@@ -7,9 +7,11 @@ export function SourcePropertiesSection() {
   const { showToast } = useToast()
   const selectedSourceId = useAppStore((s) => s.selectedSourceId)
   const selectedSource = useAppStore((s) => s.sources.find((src) => src.id === s.selectedSourceId))
+  const sources = useAppStore((s) => s.sources)
   const setSourceVolume = useAppStore((s) => s.setSourceVolume)
   const setSourceAudioFileName = useAppStore((s) => s.setSourceAudioFileName)
   const setSourceSineFrequency = useAppStore((s) => s.setSourceSineFrequency)
+  const setSourceSync = useAppStore((s) => s.setSourceSync)
 
   const playheadPosition = useTransportStore((s) => s.playheadPosition)
   const animations = useAppStore((s) => s.animations)
@@ -118,6 +120,28 @@ export function SourcePropertiesSection() {
           value={selectedSource.volume}
           onChange={(e) => setSourceVolume(selectedSource.id, parseFloat(e.target.value))}
         />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span className="cp-section-label">Hybrid Sync</span>
+        <select
+          className="btn"
+          style={{ width: '100%', textAlign: 'left', fontSize: 10 }}
+          value={selectedSource.syncWith ?? ''}
+          onChange={(e) => setSourceSync(selectedSource.id, e.target.value || null)}
+        >
+          <option value="">None (Manual)</option>
+          {sources
+            .filter((s) => s.id !== selectedSource.id)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                Sync with: {s.label}
+              </option>
+            ))}
+        </select>
+        <span style={{ fontSize: 8, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+          Links selection and playback state
+        </span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

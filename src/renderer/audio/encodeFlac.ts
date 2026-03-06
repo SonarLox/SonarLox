@@ -67,8 +67,6 @@ export function encodeFlac(audioBuffer: AudioBuffer): ArrayBuffer {
   }
 
   for (let b = 0; b < numBlocks; b++) {
-    const startFrame = b * blockSize
-    
     // Frame Header
     // Sync (14 bits): 11111111111110 (0xFFF8)
     // Block size (4 bits), Sample rate (4 bits), Channel assignment (4 bits), Sample size (3 bits), Reserved (1 bit)

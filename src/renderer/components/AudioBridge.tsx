@@ -32,6 +32,7 @@ export function AudioBridge() {
         )
       }
       audioEngine.setPosition(source.id, x, y, z)
+      audioEngine.setSourceTrim(source.id, source.offset, source.duration)
 
       // Muted sources are always silent
       // If any source is soloed, non-soloed sources are silent
@@ -43,6 +44,28 @@ export function AudioBridge() {
         effectiveVolume = 0
       } else {
         effectiveVolume = source.volume
+
+        // Hybrid Sync / Takeover logic
+        if (source.syncWith) {
+          const target = state.sources.find(s => s.id === source.syncWith)
+          if (target) {
+            const currentTime = transport.playheadPosition
+            
+            // Basic logic: if target is "active" (within its trim range), 
+            // current source is suppressed.
+            // This allows MIDI to replace Audio or vice versa.
+            const targetActive = currentTime >= target.offset && 
+                                (target.duration === null || currentTime < target.offset + target.duration)
+            
+            const selfActive = currentTime >= source.offset && 
+                              (source.duration === null || currentTime < source.offset + source.duration)
+
+            if (targetActive && selfActive) {
+              // Both active -> target takes priority (suppress self)
+              effectiveVolume = 0
+            }
+          }
+        }
       }
       audioEngine.setVolume(source.id, effectiveVolume)
     }

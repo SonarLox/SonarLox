@@ -115,7 +115,13 @@ export function SoundSource({ sourceId }: SoundSourceProps) {
       ray: Raycaster['ray']
     }) => {
       event.stopPropagation()
-      selectSource(sourceId)
+      
+      const source = getSource()
+      if (source) {
+        selectSource(sourceId)
+        // If synced, we can highlight/select logic
+      }
+
       isDragging.current = true
       shiftHeld.current = event.shiftKey
 

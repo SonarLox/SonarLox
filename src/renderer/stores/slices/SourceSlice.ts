@@ -17,6 +17,8 @@ export interface SourceSlice {
   setSourceSoloed: (id: SourceId, soloed: boolean) => void
   setSourceLabel: (id: SourceId, label: string) => void
   setSourceSeparated: (id: SourceId, separated: boolean) => void
+  setSourceSync: (id: SourceId, syncWith: SourceId | null) => void
+  splitSource: (id: SourceId, time: number) => void
 }
 
 let nextSourceIndex = 0
@@ -34,6 +36,8 @@ function createDefaultSource(index: number, type: SourceType): AudioSource {
     sineFrequency: 440,
     isMuted: false,
     isSoloed: false,
+    offset: 0,
+    duration: null,
   }
 }
 
@@ -138,4 +142,58 @@ export const createSourceSlice: StateCreator<AppState, [], [], SourceSlice> = (s
       ),
       isDirty: true,
     })),
+
+  setSourceSync: (id, syncWith) => {
+    get().recordHistory('Set source sync')
+    set((state) => ({
+      sources: state.sources.map((s) =>
+        s.id === id ? { ...s, syncWith } : s
+      ),
+      isDirty: true,
+    }))
+  },
+
+  splitSource: (id, time) => {
+    get().recordHistory('Split source')
+    const { sources, animations } = get()
+    const source = sources.find((s) => s.id === id)
+    if (!source) return
+
+    // Calculate duration for the first part
+    const splitTimeRelative = time - source.offset
+    if (splitTimeRelative <= 0) return
+
+    const firstPartDuration = splitTimeRelative
+    
+    // Create second part
+    const secondPartId = crypto.randomUUID()
+    const secondPart: AudioSource = {
+      ...source,
+      id: secondPartId,
+      label: `${source.label} (split)`,
+      offset: time,
+      duration: source.duration ? (source.duration - firstPartDuration) : null,
+    }
+
+    // Update first part
+    const updatedSources = sources.map((s) => 
+      s.id === id ? { ...s, duration: firstPartDuration } : s
+    )
+
+    // Copy animations
+    const nextAnimations = { ...animations }
+    if (animations[id]) {
+      nextAnimations[secondPartId] = {
+        sourceId: secondPartId,
+        keyframes: [...animations[id].keyframes],
+      }
+    }
+
+    set({ 
+      sources: [...updatedSources, secondPart], 
+      animations: nextAnimations,
+      selectedSourceId: secondPartId,
+      isDirty: true 
+    })
+  },
 })

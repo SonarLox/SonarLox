@@ -67,6 +67,9 @@ export interface AudioSource {
   isMuted: boolean
   isSoloed: boolean
   hasSeparatedStems?: boolean
+  offset: number // start offset within audio buffer in seconds
+  duration: number | null // duration to play, null = until end
+  syncWith?: SourceId | null // ID of source to sync with (e.g. MIDI syncing with Audio)
 }
 
 /**

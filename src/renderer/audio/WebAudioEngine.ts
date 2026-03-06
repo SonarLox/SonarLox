@@ -137,6 +137,13 @@ class WebAudioEngine implements IAudioEngine {
   }
 
   /**
+   * Sets the trim (offset and duration) for a specific source.
+   */
+  setSourceTrim(id: SourceId, offset: number, duration: number | null): void {
+    this.channels.get(id)?.setTrim(offset, duration)
+  }
+
+  /**
    * Sets the 3D position of an audio source.
    */
   setPosition(id: SourceId, x: number, y: number, z: number): void {

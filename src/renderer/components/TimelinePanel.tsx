@@ -44,27 +44,6 @@ function computeTicks(duration: number, width: number): Tick[] {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Waveform downsample                                               */
-/* ------------------------------------------------------------------ */
-
-function downsampleBuffer(buffer: AudioBuffer, targetPoints: number): Float32Array {
-  const data = buffer.getChannelData(0)
-  const step = Math.max(1, Math.floor(data.length / targetPoints))
-  const peaks = new Float32Array(targetPoints)
-  for (let i = 0; i < targetPoints; i++) {
-    const start = i * step
-    const end = Math.min(start + step, data.length)
-    let max = 0
-    for (let j = start; j < end; j++) {
-      const abs = Math.abs(data[j])
-      if (abs > max) max = abs
-    }
-    peaks[i] = max
-  }
-  return peaks
-}
-
-/* ------------------------------------------------------------------ */
 /*  WaveformRow                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -74,9 +53,10 @@ interface WaveformRowProps {
   duration: number
   totalDuration: number
   width: number
+  offset: number
 }
 
-function WaveformRow({ sourceId, color, duration, totalDuration, width }: WaveformRowProps) {
+function WaveformRow({ sourceId, color, duration, totalDuration, width, offset }: WaveformRowProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -89,6 +69,8 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width }: Wavefo
 
     const dpr = window.devicePixelRatio || 1
     const sourceWidth = totalDuration > 0 ? (duration / totalDuration) * width : width
+    const startX = totalDuration > 0 ? (offset / totalDuration) * width : 0
+    
     canvas.width = width * dpr
     canvas.height = ROW_HEIGHT * dpr
     ctx.scale(dpr, dpr)
@@ -96,9 +78,34 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width }: Wavefo
 
     const targetPoints = Math.min(Math.floor(sourceWidth * 1.5), 1200)
     if (targetPoints <= 0) return
-    const peaks = downsampleBuffer(buffer, targetPoints)
+    
+    // We need to sample only the relevant part of the buffer
+    const bufferData = buffer.getChannelData(0)
+    const sampleStart = Math.floor((offset / buffer.duration) * bufferData.length)
+    const sampleEnd = Math.min(
+      Math.floor(((offset + duration) / buffer.duration) * bufferData.length),
+      bufferData.length
+    )
+    const sampleLength = sampleEnd - sampleStart
+    
+    const step = Math.max(1, Math.floor(sampleLength / targetPoints))
+    const peaks = new Float32Array(targetPoints)
+    for (let i = 0; i < targetPoints; i++) {
+      const s = sampleStart + i * step
+      const e = Math.min(s + step, sampleEnd)
+      let max = 0
+      for (let j = s; j < e; j++) {
+        const abs = Math.abs(bufferData[j])
+        if (abs > max) max = abs
+      }
+      peaks[i] = max
+    }
+
     const barWidth = sourceWidth / peaks.length
     const midY = ROW_HEIGHT / 2
+
+    ctx.save()
+    ctx.translate(startX, 0)
 
     // Mirrored waveform with gradient fill
     const grad = ctx.createLinearGradient(0, 2, 0, ROW_HEIGHT - 2)
@@ -130,7 +137,9 @@ function WaveformRow({ sourceId, color, duration, totalDuration, width }: Wavefo
     ctx.moveTo(0, midY)
     ctx.lineTo(sourceWidth, midY)
     ctx.stroke()
-  }, [sourceId, color, duration, totalDuration, width])
+    
+    ctx.restore()
+  }, [sourceId, color, duration, totalDuration, width, offset])
 
   return (
     <canvas
@@ -384,6 +393,7 @@ export function TimelinePanel() {
   const selectSource = useAppStore((s) => s.selectSource)
   const setSourceMuted = useAppStore((s) => s.setSourceMuted)
   const setSourceSoloed = useAppStore((s) => s.setSourceSoloed)
+  const splitSource = useAppStore((s) => s.splitSource)
 
   const playheadPosition = useTransportStore((s) => s.playheadPosition)
   const duration = useTransportStore((s) => s.duration)
@@ -518,6 +528,15 @@ export function TimelinePanel() {
           >
             L
           </button>
+          <button
+            className="tl-btn"
+            style={{ width: 40, marginLeft: 4 }}
+            onClick={() => selectedSourceId && splitSource(selectedSourceId, playheadPosition)}
+            disabled={!selectedSourceId || duration <= 0}
+            title="Split selected source at playhead"
+          >
+            SPLIT
+          </button>
         </div>
 
         <div className="tl-topbar-spacer" />
@@ -617,9 +636,10 @@ export function TimelinePanel() {
                     <WaveformRow
                       sourceId={source.id}
                       color={source.color}
-                      duration={sourceDuration}
+                      duration={source.duration ?? sourceDuration}
                       totalDuration={duration}
                       width={trackWidth}
+                      offset={source.offset}
                     />
                   )}
                   {/* Playhead line */}

@@ -13,6 +13,8 @@ export class SourceChannel {
   pauseOffset: number = 0
   isOscillator: boolean = false
   sineFrequency: number = 440
+  trimOffset: number = 0
+  trimDuration: number | null = null
 
   constructor(private ctx: AudioContext, masterGain: GainNode) {
     this.gainNode = ctx.createGain()
@@ -43,16 +45,44 @@ export class SourceChannel {
 
     const source = this.ctx.createBufferSource()
     source.buffer = this.audioBuffer
-    source.loop = isLooping
+    
+    // If we have a duration, we need to handle looping manually or via loop points
+    if (this.trimDuration !== null) {
+      source.loop = isLooping
+      source.loopStart = this.trimOffset
+      source.loopEnd = this.trimOffset + this.trimDuration
+    } else {
+      source.loop = isLooping
+    }
+    
     source.connect(this.gainNode)
 
-    const offset = this.pauseOffset % this.audioBuffer.duration
+    // Current playhead in project time
+    const projectTime = this.pauseOffset
+    
+    // Clip project time to trim duration
+    let effectiveOffset = projectTime
+    if (this.trimDuration !== null) {
+      effectiveOffset = isLooping ? (projectTime % this.trimDuration) : projectTime
+      if (effectiveOffset >= this.trimDuration) {
+        // Already past the end
+        if (!isLooping) return
+      }
+    }
+
+    // Actual offset in buffer
+    const bufferOffset = this.trimOffset + effectiveOffset
+    const remainingInBuffer = this.audioBuffer.duration - bufferOffset
+    const remainingInTrim = this.trimDuration !== null ? (this.trimDuration - effectiveOffset) : remainingInBuffer
+    
+    const playDuration = this.trimDuration !== null ? remainingInTrim : undefined
+
     if (startTime !== undefined) {
-      source.start(startTime, offset)
-      this.playbackStartTime = startTime - offset
+      source.start(startTime, bufferOffset, playDuration)
+      this.playbackStartTime = startTime - effectiveOffset
     } else {
-      source.start(0, offset)
-      this.playbackStartTime = this.ctx.currentTime - offset
+      source.start(0, bufferOffset, playDuration)
+      this.playbackStartTime = this.ctx.currentTime - effectiveOffset
     }
     this.currentSource = source
     this.isOscillator = false
@@ -197,6 +227,14 @@ export class SourceChannel {
    */
   isPaused(): boolean {
     return this.pauseOffset > 0 && this.currentSource === null
+  }
+
+  /**
+   * Sets the trim (offset and duration) for this source.
+   */
+  setTrim(offset: number, duration: number | null): void {
+    this.trimOffset = offset
+    this.trimDuration = duration
   }
 
   /**
