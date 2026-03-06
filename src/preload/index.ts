@@ -10,6 +10,8 @@ if (process.contextIsolated) {
     openSoundFontFile: () => ipcRenderer.invoke('open-soundfont-file'),
     saveWavFile: (buffer: ArrayBuffer, defaultPath?: string) =>
       ipcRenderer.invoke('save-wav-file', buffer, defaultPath),
+    saveFlacFile: (buffer: ArrayBuffer, defaultPath?: string) =>
+      ipcRenderer.invoke('save-flac-file', buffer, defaultPath),
     selectDirectory: () => ipcRenderer.invoke('select-directory'),
     saveWavFileToPath: (buffer: ArrayBuffer, filePath: string, expectedDir?: string) =>
       ipcRenderer.invoke('save-wav-file-to-path', buffer, filePath, expectedDir),

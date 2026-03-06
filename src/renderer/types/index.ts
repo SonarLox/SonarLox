@@ -338,6 +338,7 @@ export interface ElectronAPI {
   openMidiFile: () => Promise<AudioFileResult | null>
   openSoundFontFile: () => Promise<AudioFileResult | null>
   saveWavFile: (buffer: ArrayBuffer, defaultPath?: string) => Promise<SaveWavResult>
+  saveFlacFile: (buffer: ArrayBuffer, defaultPath?: string) => Promise<SaveWavResult>
   selectDirectory: () => Promise<string | null>
   saveWavFileToPath: (buffer: ArrayBuffer, filePath: string, expectedDir?: string) => Promise<SaveWavResult>
   saveProject: (data: ProjectSaveData) => Promise<{ saved: boolean; path: string }>

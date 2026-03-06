@@ -15,9 +15,19 @@ ipcMain.handle('save-wav-file', async (_event, wavBuffer: ArrayBuffer, defaultPa
   return { saved: true, path: result.filePath }
 })
 
+ipcMain.handle('save-flac-file', async (_event, flacBuffer: ArrayBuffer, defaultPath?: string) => {
+  const result = await dialog.showSaveDialog({
+    filters: [{ name: 'FLAC Audio', extensions: ['flac'] }],
+    defaultPath: defaultPath ?? 'export.flac'
+  })
+  if (result.canceled || !result.filePath) return { saved: false }
+  await writeFile(result.filePath, Buffer.from(flacBuffer))
+  return { saved: true, path: result.filePath }
+})
+
 ipcMain.handle('open-audio-file', async () => {
   const result = await dialog.showOpenDialog({
-    filters: [{ name: 'Audio', extensions: ['mp3', 'wav'] }],
+    filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'flac'] }],
     properties: ['openFile']
   })
   if (result.canceled || !result.filePaths.length) return null

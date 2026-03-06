@@ -1,6 +1,7 @@
 import type { SourceId, SourcePosition, SourceAnimation } from '../types'
 import type { SpeakerLayout } from './SpeakerLayout'
 import { encodeWav } from './encodeWav'
+import { encodeFlac } from './encodeFlac'
 import { getAnimatedPosition, getAnimatedPositionsAtIntervals } from './AnimationEngine'
 import { computeVBAPGains } from './SpeakerLayout'
 
@@ -22,6 +23,8 @@ export interface RenderOptions {
 export interface SpatialRenderer {
   renderBinaural(sources: RenderSource[], options?: RenderOptions): Promise<ArrayBuffer>
   renderMultichannel(sources: RenderSource[], layout: SpeakerLayout, options?: RenderOptions): Promise<ArrayBuffer>
+  renderBinauralFlac(sources: RenderSource[], options?: RenderOptions): Promise<ArrayBuffer>
+  renderMultichannelFlac(sources: RenderSource[], layout: SpeakerLayout, options?: RenderOptions): Promise<ArrayBuffer>
   computeFrame(sources: RenderSource[], layout: SpeakerLayout, time: number, options?: Pick<RenderOptions, 'listenerY' | 'animations'>): Map<SourceId, Float32Array>
 }
 
@@ -83,138 +86,156 @@ function scheduleMultichannelGainAutomation(
 }
 
 export class WebAudioSpatialRenderer implements SpatialRenderer {
-  async renderBinaural(sources: RenderSource[], options?: RenderOptions): Promise<ArrayBuffer> {
+  private async renderToBuffer(
+    sources: RenderSource[],
+    numChannels: number,
+    options?: RenderOptions,
+    setup?: (offlineCtx: OfflineAudioContext) => void,
+    onSource?: (offlineCtx: OfflineAudioContext, src: RenderSource, dest: AudioNode) => void
+  ): Promise<AudioBuffer> {
     const sampleRate = options?.sampleRate ?? 44100
-    const listenerY = options?.listenerY ?? 0
-    const animations = options?.animations
     const onProgress = options?.onProgress
     const abortSignal = options?.abortSignal
 
-    if (abortSignal?.aborted) {
-      throw new DOMException('Render aborted', 'AbortError')
-    }
-    // TODO: OfflineAudioContext cancellation
-
+    if (abortSignal?.aborted) throw new DOMException('Render aborted', 'AbortError')
     if (sources.length === 0) throw new Error('No sources to render')
 
     const maxDuration = Math.max(...sources.map((s) => s.audioBuffer.duration))
     const length = Math.ceil(maxDuration * sampleRate)
-    const offlineCtx = new OfflineAudioContext(2, length, sampleRate)
+    const offlineCtx = new OfflineAudioContext(numChannels, length, sampleRate)
 
-    offlineCtx.listener.positionY.value = listenerY
-
+    setup?.(offlineCtx)
     onProgress?.(0)
 
     for (const src of sources) {
-      const source = offlineCtx.createBufferSource()
-      source.buffer = src.audioBuffer
-
-      const gainNode = offlineCtx.createGain()
-      gainNode.gain.value = src.volume
-
-      const pannerNode = offlineCtx.createPanner()
-      pannerNode.panningModel = 'HRTF'
-      pannerNode.distanceModel = 'inverse'
-      pannerNode.refDistance = 1
-      pannerNode.maxDistance = 50
-      pannerNode.rolloffFactor = 1
-      pannerNode.positionX.value = src.position[0]
-      pannerNode.positionY.value = src.position[1]
-      pannerNode.positionZ.value = src.position[2]
-
-      if (src.sourceId && animations) {
-        schedulePositionAutomation(pannerNode, src.sourceId, animations, src.position, src.audioBuffer.duration)
-      }
-
-      source.connect(gainNode)
-      gainNode.connect(pannerNode)
-      pannerNode.connect(offlineCtx.destination)
-
-      source.start()
+      onSource?.(offlineCtx, src, offlineCtx.destination)
     }
 
-    // TODO: OfflineAudioContext.suspend() for progress
     const rendered = await offlineCtx.startRendering()
     onProgress?.(1)
-
-    return encodeWav(rendered)
+    return rendered
   }
 
-  async renderMultichannel(
-    sources: RenderSource[],
-    layout: SpeakerLayout,
-    options?: RenderOptions,
-  ): Promise<ArrayBuffer> {
-    const sampleRate = options?.sampleRate ?? 44100
-    const listenerY = options?.listenerY ?? 0
-    const animations = options?.animations
-    const onProgress = options?.onProgress
-    const abortSignal = options?.abortSignal
-
-    if (abortSignal?.aborted) {
-      throw new DOMException('Render aborted', 'AbortError')
-    }
-    // TODO: OfflineAudioContext cancellation
-
-    if (sources.length === 0) throw new Error('No sources to render')
-
-    const maxDuration = Math.max(...sources.map((s) => s.audioBuffer.duration))
-    const length = Math.ceil(maxDuration * sampleRate)
-    const offlineCtx = new OfflineAudioContext(layout.channelCount, length, sampleRate)
-
-    const merger = offlineCtx.createChannelMerger(layout.channelCount)
-    merger.connect(offlineCtx.destination)
-
-    onProgress?.(0)
-
-    for (const src of sources) {
-      const adjustedPosition: SourcePosition = [
-        src.position[0],
-        src.position[1] - listenerY,
-        src.position[2],
-      ]
-
-      const initialGains = computeVBAPGains(adjustedPosition, layout)
-      const gainNodes: GainNode[] = []
-
-      for (let ch = 0; ch < layout.channelCount; ch++) {
-        const sourceBuffer = offlineCtx.createBufferSource()
-        sourceBuffer.buffer = src.audioBuffer
-
-        const gainNode = offlineCtx.createGain()
-        gainNode.gain.value = src.volume * initialGains[ch]
-        gainNodes.push(gainNode)
-
-        const isLFE = layout.speakers.find(s => s.channelIndex === ch)?.isLFE ?? false
-
-        if (isLFE) {
-          const lpf = offlineCtx.createBiquadFilter()
-          lpf.type = 'lowpass'
-          lpf.frequency.value = layout.lfeCrossoverHz ?? 120
-          sourceBuffer.connect(gainNode)
-          gainNode.connect(lpf)
-          lpf.connect(merger, 0, ch)
-        } else {
-          sourceBuffer.connect(gainNode)
-          gainNode.connect(merger, 0, ch)
+  async renderBinaural(sources: RenderSource[], options?: RenderOptions): Promise<ArrayBuffer> {
+    const buffer = await this.renderToBuffer(sources, 2, options, 
+      (ctx) => { ctx.listener.positionY.value = options?.listenerY ?? 0 },
+      (ctx, src, dest) => {
+        const source = ctx.createBufferSource()
+        source.buffer = src.audioBuffer
+        const gainNode = ctx.createGain()
+        gainNode.gain.value = src.volume
+        const pannerNode = ctx.createPanner()
+        pannerNode.panningModel = 'HRTF'
+        pannerNode.positionX.value = src.position[0]
+        pannerNode.positionY.value = src.position[1]
+        pannerNode.positionZ.value = src.position[2]
+        if (src.sourceId && options?.animations) {
+          schedulePositionAutomation(pannerNode, src.sourceId, options.animations, src.position, src.audioBuffer.duration)
         }
-
-        sourceBuffer.start()
+        source.connect(gainNode)
+        gainNode.connect(pannerNode)
+        pannerNode.connect(dest)
+        source.start()
       }
+    )
+    return encodeWav(buffer)
+  }
 
-      if (src.sourceId && animations) {
-        scheduleMultichannelGainAutomation(
-          gainNodes, src.sourceId, animations, src.position,
-          src.volume, listenerY, src.audioBuffer.duration, layout,
-        )
+  async renderBinauralFlac(sources: RenderSource[], options?: RenderOptions): Promise<ArrayBuffer> {
+    const buffer = await this.renderToBuffer(sources, 2, options, 
+      (ctx) => { ctx.listener.positionY.value = options?.listenerY ?? 0 },
+      (ctx, src, dest) => {
+        const source = ctx.createBufferSource()
+        source.buffer = src.audioBuffer
+        const gainNode = ctx.createGain()
+        gainNode.gain.value = src.volume
+        const pannerNode = ctx.createPanner()
+        pannerNode.panningModel = 'HRTF'
+        pannerNode.positionX.value = src.position[0]
+        pannerNode.positionY.value = src.position[1]
+        pannerNode.positionZ.value = src.position[2]
+        if (src.sourceId && options?.animations) {
+          schedulePositionAutomation(pannerNode, src.sourceId, options.animations, src.position, src.audioBuffer.duration)
+        }
+        source.connect(gainNode)
+        gainNode.connect(pannerNode)
+        pannerNode.connect(dest)
+        source.start()
       }
-    }
+    )
+    return encodeFlac(buffer)
+  }
 
-    // TODO: OfflineAudioContext.suspend() for progress
-    const rendered = await offlineCtx.startRendering()
-    onProgress?.(1)
+  async renderMultichannel(sources: RenderSource[], layout: SpeakerLayout, options?: RenderOptions): Promise<ArrayBuffer> {
+    const buffer = await this.renderToBuffer(sources, layout.channelCount, options, undefined,
+      (ctx, src, dest) => {
+        const merger = ctx.createChannelMerger(layout.channelCount)
+        merger.connect(dest)
+        const adjustedPosition: SourcePosition = [src.position[0], src.position[1] - (options?.listenerY ?? 0), src.position[2]]
+        const initialGains = computeVBAPGains(adjustedPosition, layout)
+        const gainNodes: GainNode[] = []
+        for (let ch = 0; ch < layout.channelCount; ch++) {
+          const sourceBuffer = ctx.createBufferSource()
+          sourceBuffer.buffer = src.audioBuffer
+          const gainNode = ctx.createGain()
+          gainNode.gain.value = src.volume * initialGains[ch]
+          gainNodes.push(gainNode)
+          const isLFE = layout.speakers.find(s => s.channelIndex === ch)?.isLFE ?? false
+          if (isLFE) {
+            const lpf = ctx.createBiquadFilter()
+            lpf.type = 'lowpass'
+            lpf.frequency.value = layout.lfeCrossoverHz ?? 120
+            sourceBuffer.connect(gainNode)
+            gainNode.connect(lpf)
+            lpf.connect(merger, 0, ch)
+          } else {
+            sourceBuffer.connect(gainNode)
+            gainNode.connect(merger, 0, ch)
+          }
+          sourceBuffer.start()
+        }
+        if (src.sourceId && options?.animations) {
+          scheduleMultichannelGainAutomation(gainNodes, src.sourceId, options.animations, src.position, src.volume, options.listenerY ?? 0, src.audioBuffer.duration, layout)
+        }
+      }
+    )
+    return encodeWav(buffer)
+  }
 
-    return encodeWav(rendered)
+  async renderMultichannelFlac(sources: RenderSource[], layout: SpeakerLayout, options?: RenderOptions): Promise<ArrayBuffer> {
+    const buffer = await this.renderToBuffer(sources, layout.channelCount, options, undefined,
+      (ctx, src, dest) => {
+        const merger = ctx.createChannelMerger(layout.channelCount)
+        merger.connect(dest)
+        const adjustedPosition: SourcePosition = [src.position[0], src.position[1] - (options?.listenerY ?? 0), src.position[2]]
+        const initialGains = computeVBAPGains(adjustedPosition, layout)
+        const gainNodes: GainNode[] = []
+        for (let ch = 0; ch < layout.channelCount; ch++) {
+          const sourceBuffer = ctx.createBufferSource()
+          sourceBuffer.buffer = src.audioBuffer
+          const gainNode = ctx.createGain()
+          gainNode.gain.value = src.volume * initialGains[ch]
+          gainNodes.push(gainNode)
+          const isLFE = layout.speakers.find(s => s.channelIndex === ch)?.isLFE ?? false
+          if (isLFE) {
+            const lpf = ctx.createBiquadFilter()
+            lpf.type = 'lowpass'
+            lpf.frequency.value = layout.lfeCrossoverHz ?? 120
+            sourceBuffer.connect(gainNode)
+            gainNode.connect(lpf)
+            lpf.connect(merger, 0, ch)
+          } else {
+            sourceBuffer.connect(gainNode)
+            gainNode.connect(merger, 0, ch)
+          }
+          sourceBuffer.start()
+        }
+        if (src.sourceId && options?.animations) {
+          scheduleMultichannelGainAutomation(gainNodes, src.sourceId, options.animations, src.position, src.volume, options.listenerY ?? 0, src.audioBuffer.duration, layout)
+        }
+      }
+    )
+    return encodeFlac(buffer)
   }
 
   computeFrame(

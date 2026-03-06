@@ -4,7 +4,9 @@ import { audioEngine } from '../audio/WebAudioEngine'
 import type { RenderSource } from '../audio/Exporter'
 import {
   exportMixedBinauralWav,
+  exportMixedBinauralFlac,
   export51Wav,
+  export51Flac,
 } from '../audio/Exporter'
 import { usePluginStore } from '../plugins/usePluginStore'
 import { ExporterPlugin } from '../plugins/types'
@@ -14,10 +16,12 @@ interface ExportDialogProps {
   onClose: () => void
 }
 
-type ExportMode = 'binaural-stems' | 'binaural-mix' | '5.1-surround' | string
+type ExportMode = 'binaural-mix' | '5.1-surround' | string
+type ExportFormat = 'wav' | 'flac'
 
 export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
   const [mode, setMode] = useState<ExportMode>('binaural-mix')
+  const [format, setFormat] = useState<ExportFormat>('wav')
   const [isExporting, setIsExporting] = useState(false)
   const projectTitle = useAppStore((s) => s.projectTitle)
   const exporterPlugins = usePluginStore((s) => s.getExporterPlugins())
@@ -30,7 +34,7 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
 
     try {
       let buffer: ArrayBuffer | null = null
-      let extension = 'wav'
+      let extension = format
 
       // Check if it's a plugin exporter
       const pluginInstance = exporterPlugins.find(p => p.manifest.id === mode)
@@ -55,20 +59,33 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
             volume: s.volume,
           }))
 
-        switch (mode) {
-          case 'binaural-stems':
-          case 'binaural-mix':
-            buffer = await exportMixedBinauralWav(exportSources, appState.listenerY, appState.animations)
-            break
-          case '5.1-surround':
-            buffer = await export51Wav(exportSources, appState.listenerY, appState.animations)
-            break
+        if (format === 'wav') {
+          switch (mode) {
+            case 'binaural-mix':
+              buffer = await exportMixedBinauralWav(exportSources, appState.listenerY, appState.animations)
+              break
+            case '5.1-surround':
+              buffer = await export51Wav(exportSources, appState.listenerY, appState.animations)
+              break
+          }
+        } else {
+          switch (mode) {
+            case 'binaural-mix':
+              buffer = await exportMixedBinauralFlac(exportSources, appState.listenerY, appState.animations)
+              break
+            case '5.1-surround':
+              buffer = await export51Flac(exportSources, appState.listenerY, appState.animations)
+              break
+          }
         }
       }
 
       if (buffer) {
         const defaultPath = `${projectTitle}.${extension}`
-        const result = await window.api.saveWavFile(buffer, defaultPath)
+        const result = extension === 'flac' 
+          ? await window.api.saveFlacFile(buffer, defaultPath)
+          : await window.api.saveWavFile(buffer, defaultPath)
+          
         if (result.saved) {
           onClose()
         }
@@ -85,14 +102,37 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
       <div className="export-dialog">
         <h3 className="section-label" style={{ marginBottom: 20 }}>Export Audio</h3>
         
+        <div style={{ marginBottom: 20 }}>
+          <span className="section-label" style={{ fontSize: 9, display: 'block', marginBottom: 8 }}>Format</span>
+          <div style={{ display: 'flex', gap: 15 }}>
+            <label className="radio-label">
+              <input 
+                type="radio" 
+                checked={format === 'wav'} 
+                onChange={() => setFormat('wav')} 
+              />
+              WAV
+            </label>
+            <label className="radio-label">
+              <input 
+                type="radio" 
+                checked={format === 'flac'} 
+                onChange={() => setFormat('flac')} 
+              />
+              FLAC
+            </label>
+          </div>
+        </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 30 }}>
+          <span className="section-label" style={{ fontSize: 9 }}>Mode</span>
           <label className="radio-label">
             <input 
               type="radio" 
               checked={mode === 'binaural-mix'} 
               onChange={() => setMode('binaural-mix')} 
             />
-            Binaural Mix (Stereo WAV)
+            Binaural Mix (Stereo)
           </label>
           <label className="radio-label">
             <input 
@@ -100,7 +140,7 @@ export function ExportDialog({ isOpen, onClose }: ExportDialogProps) {
               checked={mode === '5.1-surround'} 
               onChange={() => setMode('5.1-surround')} 
             />
-            5.1 Surround (6-channel WAV)
+            5.1 Surround (6-channel)
           </label>
 
           {exporterPlugins.length > 0 && (
